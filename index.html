@@ -283,6 +283,20 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
 .slotGo span{font-family:var(--sans);font-size:12px;color:var(--dim)}
 .slotDel{flex:0 0 auto;background:transparent;border:1px solid var(--line);padding:0 12px;font-family:var(--sans);font-size:12px;color:var(--dim);cursor:pointer}
 .slotDel.armed{border-color:currentColor;color:#d9483b}
+#foe{border:1px solid var(--cinnabar);background:var(--bg);padding:8px 10px;display:grid;gap:5px;font-family:var(--sans);font-size:12px}
+#foe .fh{display:flex;align-items:center;gap:6px}
+#foe .fh strong{font-family:var(--brush);font-weight:400;font-size:22px;line-height:1;color:var(--ink)}
+#foe .fh .elb{margin-left:0}
+#foe .fh em{margin-left:auto;font-style:normal;color:var(--dim)}
+#foe .fhp{display:flex;justify-content:space-between;color:var(--dim)}
+#foe .fhp b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+#foe .ftr{height:8px;background:var(--line);position:relative;overflow:hidden}
+#foe .ftr i{position:absolute;inset:0 auto 0 0;display:block;transition:width .4s,background .4s}
+#foe .fst{display:flex;gap:6px;flex-wrap:wrap}
+#foe .fst span{border:1px solid var(--line);padding:0 6px;color:var(--dim)}
+#foe .fst .low{border-color:var(--cinnabar);color:var(--cinnabar);font-weight:600}
+#foe .fst .gd{border-color:var(--qi);color:var(--qi)}
+#foe .fst .px{border-color:var(--jade);color:var(--jade)}
 </style>
 
 <div id="app">
@@ -320,6 +334,7 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
   </header>
   <main id="log" aria-live="polite"></main>
   <footer>
+    <div id="foe" hidden aria-live="polite"></div>
     <div class="chips" id="chips"></div>
     <div class="row">
       <textarea id="act" rows="1" placeholder="你想做什么？比如：打坐 / 偷听 / 找人打听消息"></textarea>
@@ -432,7 +447,15 @@ function show(choices){exportReminder();S._c=choices;S.choices=choices.map(c=>c[
 
 /* ===== 状态栏与面板 ===== */
 const need=()=>S.lv*40;
-function ui(){$('lv').textContent=S.lv;$('nm').textContent=S.name;$('elb').textContent=S.el;$('elb').style.setProperty('--ec',ELS[S.el].c);
+function foeCard(){const c=$('foe');if(!c)return;const f=S&&S.fight;if(!f||S.over){c.hidden=true;return;}c.hidden=false;c.textContent='';
+ const h=el('div','fh');h.append(el('strong',null,f.n));const e=el('span','elb',f.el);e.style.setProperty('--ec',ELS[f.el]?ELS[f.el].c:'#9c8f7c');h.append(e);
+ h.append(el('em',null,(f.boss?'宗师':f.named?'劲敌':'敌手')+' · 攻'+f.atk+' 防'+f.def+(f.phase>1?' · 第'+f.phase+'阶段':'')));c.append(h);
+ const hp=Math.max(0,f.hp),r=hp/f.mhp;const row=el('div','fhp');row.append(el('span',null,'气血'));row.append(el('b',null,hp+'/'+f.mhp));c.append(row);
+ const tr=el('div','ftr');const i=el('i');i.style.width=(r*100)+'%';i.style.background=r<.25?'var(--cinnabar)':r<.5?'#d9883b':'var(--gold)';tr.append(i);c.append(tr);
+ const st=el('div','fst');if(r<.25)st.append(el('span','low','残血'));if(f.guard)st.append(el('span','gd','守御'));if(f.bleed)st.append(el('span','px','你中毒（'+f.bleed+'）'));if(S._guard)st.append(el('span','gd','你在守御'));
+ const sk=mySkills().map(s=>skillEl(s));if(sk.some(x=>KE[x]===f.el))st.append(el('span',null,'怕'+Object.keys(KE).find(k=>KE[k]===f.el)+'属'));
+ if(st.childNodes.length)c.append(st);}
+function ui(){foeCard();$('lv').textContent=S.lv;$('nm').textContent=S.name;$('elb').textContent=S.el;$('elb').style.setProperty('--ec',ELS[S.el].c);
  $('where').textContent=(S.place||LOC[S.loc].n)+' · 第'+S.day+'日';$('aN').textContent=aiOn()?'开':'关';
  $('hp').textContent=S.hp+'/'+S.mhp;$('qi').textContent=S.mp+'/'+S.mmp;$('xp').textContent=S.xp+'/'+need();
  $('hpB').style.width=(S.hp/S.mhp*100)+'%';$('qiB').style.width=(S.mp/S.mmp*100)+'%';$('xpB').style.width=(S.xp/need()*100)+'%';
@@ -627,8 +650,8 @@ function attack(s){const f=S.fight;if(S.mp<s.mp){say('内力不足！','bad');re
  if(SHENG5[ae]===S.el){S.mp=Math.min(S.mmp,S.mp+3);m+=ae+'生'+S.el+'，内力回流 +3。';}if(chance(S.el==='火'?.18:.1)){d=Math.round(d*1.7);m='会心一击！';}
  if(f.guard){d=Math.round(d*.5);m+='对方架势严密，劲力被卸去一半。';f.guard=false;}
  if(f.boss&&s.n==="太虚剑意"&&S.flags.weak){d=Math.round(d*1.5);m+='正中破绽！';}
- d=Math.max(1,d);f.hp-=d;let t='你使出'+s.n+'，造成 '+d+' 点伤害';
- if(S.flags.allyOn&&f.hp>0&&chance(.6)){const a=Math.max(1,R(3,6)+S.lv-Math.floor(f.def/2));f.hp-=a;t+='；柳青补上一剑，再伤 '+a;}
+ d=Math.max(1,d);f.hp-=d;let t='你使出'+s.n+'，造成 '+d+' 点伤害';const left=()=>'（剩余 '+Math.max(0,f.hp)+'/'+f.mhp+'）';
+ if(S.flags.allyOn&&f.hp>0&&chance(.6)){const a=Math.max(1,R(3,6)+S.lv-Math.floor(f.def/2));f.hp-=a;t+='；柳青补上一剑，再伤 '+a;}t+=left();
  push({k:'r',w:true,t:s.n,m,d:t});
  if(f.hp<=0)return winFight();phaseCheck();enemyTurn();}
 function phaseCheck(){const f=S.fight;if(!f||!(f.named||f.boss))return;
