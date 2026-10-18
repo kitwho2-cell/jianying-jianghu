@@ -1,0 +1,939 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>剑影江湖</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&family=Noto+Serif+SC:wght@400;600&display=swap">
+<style>
+/* Layout: compact RPG status bar (level + HP/内力 always visible), fold-out panels, scrolling story, action bar. Dark-only: lamplit inn table, rice-paper ink, cinnabar seal. */
+:root{
+  --bg:#16130f; --surface:#211c16; --line:#3a3128; --ink:#ede3d1; --dim:#9c8f7c;
+  --cinnabar:#d9483b; --jade:#5fae8c; --gold:#e0b04f; --qi:#5b8fd6;
+  --brush:"Zhi Mang Xing","STXingkai","KaiTi",cursive;
+  --serif:"Noto Serif SC","Songti SC","SimSun",serif;
+  --sans:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--serif)}
+button,textarea,input{font:inherit;color:inherit}
+#app{height:100%;display:grid;grid-template-rows:auto 1fr auto;max-width:760px;margin:0 auto}
+header{padding-block:10px 8px;padding-inline:16px;border-bottom:1px solid var(--line);display:grid;gap:8px;background:var(--bg)}
+.top{display:flex;align-items:center;gap:12px}
+.lv{flex:0 0 auto;width:46px;height:46px;border:2px solid var(--gold);display:grid;place-items:center;line-height:1;text-align:center}
+.lv small{display:block;font-family:var(--sans);font-size:10px;color:var(--dim);letter-spacing:.1em}
+.lv b{font-family:var(--sans);font-size:20px;color:var(--gold);font-variant-numeric:tabular-nums}
+.who{flex:1;min-width:0;display:grid;gap:5px}
+.nm{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.nm strong{font-family:var(--brush);font-weight:400;font-size:24px;line-height:1}
+.nm span{font-family:var(--sans);font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-family:var(--sans);font-size:11px;color:var(--dim)}
+.bar{display:grid;gap:2px}
+.bar span{display:flex;justify-content:space-between}
+.bar b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.track{height:5px;background:var(--line);position:relative;overflow:hidden}
+.track i{position:absolute;inset:0 auto 0 0;display:block;transition:width .5s}
+#hpB{background:var(--cinnabar)} #qiB{background:var(--qi)} #xpB{background:var(--gold)}
+.tools{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;font-family:var(--sans);font-size:13px;margin-inline:-16px;padding-inline:16px;mask-image:linear-gradient(90deg,transparent 0,#000 16px,#000 calc(100% - 28px),transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16px,#000 calc(100% - 28px),transparent 100%)}
+.tools::-webkit-scrollbar{display:none}
+button{-webkit-appearance:none;appearance:none;background:transparent;color:inherit;border-radius:0}
+.tools button{flex:0 0 auto;white-space:nowrap}
+.tools button{background:transparent;border:1px solid var(--line);padding:4px 10px;cursor:pointer}
+.tools button[aria-expanded="true"]{border-color:var(--gold);color:var(--gold)}
+.tools b{font-weight:500;color:var(--gold);font-variant-numeric:tabular-nums}
+.drawer{max-height:42vh;overflow-y:auto;border:1px solid var(--line);background:var(--surface);padding:10px 12px;display:grid;gap:10px;font-family:var(--sans);font-size:13px}
+.grp{display:grid;gap:6px}
+.grp h4{margin:0;font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.12em}
+.grp div{display:flex;flex-wrap:wrap;gap:6px}
+.tag{border:1px solid var(--line);padding:2px 8px;color:var(--ink)}
+.tag.sk{border-color:var(--jade);color:var(--jade)}
+.tag.love{border-color:var(--cinnabar);color:var(--cinnabar)}
+.tag.gear{border-color:var(--gold);color:var(--gold)}
+.kv{display:flex;gap:16px;flex-wrap:wrap;color:var(--dim)}
+.kv b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.bounty{display:grid;grid-template-columns:1fr auto;gap:2px 10px;background:none;border:0;border-bottom:1px solid var(--line);padding:0 0 8px;text-align:left;cursor:pointer}
+.bounty:last-child{border-bottom:0;padding-bottom:0}
+.bounty strong{color:var(--ink);font-weight:600}
+.bounty em{font-style:normal;color:var(--gold);white-space:nowrap}
+.bounty span{grid-column:1/-1;color:var(--dim);line-height:1.5}
+.bounty .lvl{color:var(--cinnabar)}
+.empty{color:var(--dim)}
+#log{overflow-y:auto;padding-block:20px 28px;padding-inline:16px;display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth}
+.n{font-size:17px;line-height:1.95;max-width:34em;white-space:pre-wrap;text-wrap:pretty}
+.n.wait{color:var(--dim)}
+.p{display:flex;gap:10px;align-items:flex-start;color:var(--dim);font-size:15px;line-height:1.7}
+.seal{flex:0 0 22px;height:22px;background:var(--cinnabar);color:#fff;font-family:var(--brush);font-size:16px;display:grid;place-items:center;margin-top:2px}
+.sys{font-family:var(--sans);font-size:13px;color:var(--dim);text-align:center}
+.up{font-family:var(--brush);font-size:30px;color:var(--gold);text-align:center;letter-spacing:.12em;padding-block:4px}
+.up small{display:block;font-family:var(--sans);font-size:12px;color:var(--dim);letter-spacing:.04em;margin-top:4px}
+.org{display:grid;gap:8px}
+.drawer.rel{max-height:72vh}
+.rfil{display:flex;gap:6px;flex-wrap:wrap}
+.rfil button{background:transparent;border:1px solid var(--line);padding:3px 10px;font-size:12px;cursor:pointer;color:var(--dim)}
+.rfil button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.rmap{width:100%;max-width:100%;height:auto;display:block;touch-action:manipulation}
+.rmap text{font-family:var(--sans);font-size:11px;fill:var(--ink);text-anchor:middle;pointer-events:none}
+.rmap .nd{cursor:pointer}
+.rmap .nd:focus{outline:none}
+.rmap .nd:focus circle.ring,.rmap .nd.sel circle.ring{stroke:var(--gold);stroke-width:3}
+.rleg{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dim)}
+.rleg i{display:inline-block;width:16px;height:3px;vertical-align:middle;margin-right:4px}
+.rcard{border:1px solid var(--line);padding:10px 12px;display:grid;gap:8px;background:var(--bg)}
+.rcard h5{margin:0;display:flex;align-items:center;gap:8px;font-family:var(--brush);font-weight:400;font-size:24px}
+.rcard h5 small{font-family:var(--sans);font-size:12px;color:var(--dim)}
+.aff{display:grid;gap:3px}
+.aff .tr{position:relative;height:8px;background:var(--line)}
+.aff .tr::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--dim)}
+.aff .tr i{position:absolute;top:0;bottom:0;display:block}
+.aff span{display:flex;justify-content:space-between;color:var(--dim)}
+.aff b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.rdesc{line-height:1.6;color:var(--ink)}
+.party{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-family:var(--sans);font-size:12px;color:var(--dim)}
+.party button{background:transparent;border:1px solid var(--jade);color:var(--jade);padding:2px 8px;cursor:pointer;font-size:12px}
+.party button .elb{width:16px;height:16px;font-size:12px;margin:0 4px 0 0;vertical-align:-2px}
+.tsum{display:grid;gap:6px;border:1px solid var(--line);padding:8px 10px;background:var(--bg)}
+.tsum .els5{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tsum .els5 .elb{margin:0}
+.tsum .els5 .elb.off{opacity:.25}
+.tmem{border:1px solid var(--line);padding:10px 12px;display:grid;gap:8px}
+.tmem.hurt{border-color:var(--cinnabar)}
+.tmem h5{margin:0;display:flex;align-items:center;gap:8px;font-family:var(--brush);font-weight:400;font-size:22px}
+.tmem h5 small{font-family:var(--sans);font-size:12px;color:var(--dim)}
+.tmem h5 .st{margin-left:auto;font-family:var(--sans);font-size:12px;color:var(--cinnabar)}
+.slotx{border:1px dashed var(--line);padding:10px 12px;color:var(--dim)}
+.rx{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--dim);width:30px;height:30px;font-size:18px;line-height:1;cursor:pointer;font-family:var(--sans)}
+.rclose{justify-self:stretch;background:transparent;border:1px solid var(--line);color:var(--dim);padding:6px;font-family:var(--sans);font-size:13px;cursor:pointer}
+.moves{display:grid;gap:6px}
+.moves .mh{display:flex;justify-content:space-between;align-items:center;font-family:var(--sans);font-size:12px;color:var(--dim)}
+.moves .mh b{color:var(--gold);font-weight:500}
+.moves .ml{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px 6px 2px 0}
+.moves .ml::-webkit-scrollbar{display:none}
+.mv{flex:0 0 auto;display:grid;gap:1px;text-align:left;background:transparent;border:1px solid var(--cinnabar);padding:5px 10px;cursor:pointer;min-width:96px}
+.mv strong{font-weight:600;font-size:14px;color:var(--ink)}
+.mv span{font-family:var(--sans);font-size:11px;color:var(--dim);white-space:nowrap}
+.mv.combo{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.mv:disabled{opacity:.4;cursor:default}
+.mv{position:relative}.mv.on{background:color-mix(in srgb,var(--cinnabar) 22%,transparent);border-color:var(--gold)}
+.mv .mvn{position:absolute;top:-7px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#1b1712;font:700 11px/18px var(--sans);text-align:center;font-style:normal}
+.mvtoggle{flex:0 0 auto;background:transparent;border:1px dashed var(--cinnabar);color:var(--cinnabar);padding:6px 12px;font-size:14px;cursor:pointer}
+.mvlist{display:grid;gap:0}
+.mvlist .rw strong{font-weight:500}
+.wcard{border:1px solid var(--gold);padding:10px 12px;display:grid;gap:6px;background:var(--bg)}
+.wcard h5{margin:0;display:flex;align-items:baseline;gap:8px;font-family:var(--brush);font-weight:400;font-size:22px;color:var(--gold)}
+.wcard h5 small{font-family:var(--sans);font-size:12px;color:var(--dim)}
+.dur{height:4px;background:var(--line);position:relative}.dur i{position:absolute;inset:0 auto 0 0;display:block;background:var(--gold)}
+.itm{cursor:pointer;background:transparent;font:inherit}
+.itm.sel{background:color-mix(in srgb,var(--gold) 15%,transparent)}
+.rk{display:grid;grid-template-columns:2em 1fr auto;gap:2px 8px;align-items:baseline;background:none;border:0;border-bottom:1px solid var(--line);padding:6px 0;text-align:left;cursor:pointer;width:100%}
+.rk:last-child{border-bottom:0}
+.rk.me{background:color-mix(in srgb,var(--gold) 10%,transparent)}
+.rk .gstat{grid-column:2/4;font-family:var(--sans);font-size:11px;color:var(--dim)}
+.rfil.gm{margin-top:-2px}
+.rk b{font-family:var(--sans);color:var(--gold);font-variant-numeric:tabular-nums}
+.rk strong{font-weight:600}
+.rk em{font-style:normal;color:var(--dim);font-size:12px;white-space:nowrap}
+.rk span{grid-column:2/-1;color:var(--dim);font-size:12px;line-height:1.5}
+.rk.me{background:color-mix(in srgb,var(--gold) 10%,transparent)}
+.myrank{font-family:var(--sans);font-size:13px;color:var(--ink)}
+.myrank b{color:var(--gold)}
+.rtop{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.rview button{min-width:44px}
+.rmap text.lo{font-size:10px}
+.wmap{width:100%;height:auto;display:block;background:#e2d0a8;border:1px solid var(--line);touch-action:manipulation;border-radius:2px}
+.wmap text{font-family:var(--brush);font-size:12px;fill:#2a1d12;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#efe3c6;stroke-width:3px;stroke-linejoin:round}
+.wmap text.faint{fill:#6b5a44}
+.wmap text.rg{font-size:26px;fill:#8c3b2a;opacity:.28;stroke:none;letter-spacing:6px}
+.wmap text.cnt{font-family:var(--sans);font-size:8px;fill:#fff;font-weight:700;stroke:none}
+.wmap text.seal{font-size:11px;fill:#f4e8cf;stroke:none}
+.wmap text.cmp{font-size:10px;stroke:none;fill:#2a1d12}
+.wmap .pl{cursor:pointer}.wmap .pl:focus{outline:none}
+.wmap .pl:focus-visible>g{filter:drop-shadow(0 0 2px #b0342a)}
+.wmap .here{fill:none;stroke:#b0342a;stroke-width:1.5;animation:pulse 1.8s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.4);opacity:0}}
+@media (prefers-reduced-motion:reduce){.wmap .here{animation:none}}
+.mchips{display:flex;flex-wrap:wrap;gap:6px}.mchips button{background:transparent;border:1px solid var(--line);color:var(--ink);font-family:var(--sans);font-size:12px;padding:3px 8px;cursor:pointer}
+.mchips button.cur{border-color:var(--gold);color:var(--gold)}.mchips h6{width:100%;margin:6px 0 0;font-size:11px;color:var(--dim);font-weight:400}
+.rlist{display:grid;gap:0}
+.rrow{display:grid;grid-template-columns:10px minmax(0,auto) 1fr 64px 34px;gap:4px 8px;align-items:center;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 2px;text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}
+.rrow.sel{background:color-mix(in srgb,var(--gold) 10%,transparent)}
+.rrow.gone{opacity:.5}
+.rrow strong{font-weight:600;white-space:nowrap}
+.rdot{width:10px;height:10px;border-radius:50%;display:block}
+.sx{font-family:var(--sans);font-size:13px;color:#5b9fe0;margin-left:4px;font-style:normal;font-weight:600}.sx.f{color:#e0628a}
+.rmeta{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rbar{position:relative;height:6px;background:var(--line);display:block}
+.rbar::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--dim)}
+.rbar i{position:absolute;top:0;bottom:0;display:block}
+.rrow em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--ink);text-align:right;font-size:12px}
+.rlist .rcard{margin-block:6px}
+.rbtns{display:flex;gap:8px;flex-wrap:wrap}
+.rcard .go2.team{border-color:var(--jade);color:var(--jade)}
+.rcard .go2.leave{border-color:var(--line);color:var(--dim)}
+.rhint{font-size:12px;color:var(--dim)}
+.go2,.rcard .go2{justify-self:start;background:transparent;border:1px solid var(--gold);color:var(--gold);padding:4px 12px;cursor:pointer;font-family:var(--sans);font-size:13px;border-radius:0}
+.go2.team{border-color:var(--jade);color:var(--jade)}.go2.leave{border-color:var(--line);color:var(--dim)}
+.org h4{margin:0;font-family:var(--brush);font-weight:400;font-size:20px;color:var(--gold)}
+.org .kv b{color:var(--ink)}
+.rows{display:grid;gap:0}
+.rw{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.rw:last-child{border-bottom:0}
+.rw strong{font-weight:500}
+.rw em{font-style:normal;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rw span{grid-column:1/-1;color:var(--dim);line-height:1.5}
+.lock{color:var(--dim);line-height:1.7}
+.bizsum{font-family:var(--sans);font-size:13px;color:var(--gold)}
+.bizl{display:grid;gap:8px}
+.biz{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:start;border:1px solid var(--line);padding:8px 10px;background:var(--bg)}
+.biz.off{opacity:.6}
+.bic{width:34px;height:34px;display:grid;place-items:center;background:var(--cinnabar);color:#f4e8cf;font-family:var(--brush);font-size:20px}
+.bhd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.bhd strong{font-size:15px}
+.bst{font-family:var(--sans);font-size:11px;color:var(--jade);border:1px solid currentColor;padding:0 4px}.biz.off .bst{color:var(--cinnabar)}
+.bmeta{font-family:var(--sans);font-size:12px;color:var(--dim);margin-top:2px}
+.bnote{font-size:13px;margin-top:4px;line-height:1.5}
+.bstock{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.binc{font-family:var(--sans);font-size:13px;color:var(--gold);white-space:nowrap}
+.lock b{color:var(--ink);font-weight:500}
+.settle{font-family:var(--sans);font-size:13px;color:var(--gold);text-align:center;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);padding-block:6px}
+.remind{display:grid;gap:4px;font-family:var(--sans);font-size:13px;border-left:3px solid var(--gold);background:color-mix(in srgb,var(--gold) 10%,transparent);padding:6px 10px}
+.remind button{background:none;border:0;padding:0;text-align:left;cursor:pointer;line-height:1.5}
+.remind b{color:var(--gold);font-weight:600;margin-right:6px}
+.remind .late b{color:var(--cinnabar)}
+.remind .saga b{color:#e07a5f}
+.saga-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.saga-h h5{margin:0;font-family:var(--brush);font-size:22px;color:var(--gold);font-weight:400}
+.saga-h small{color:var(--dim);font-size:12px}
+.acts{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.acts li{display:grid;grid-template-columns:22px 1fr;gap:6px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.acts li i{font-style:normal;text-align:center;color:var(--dim)}.acts li.done{color:var(--dim)}.acts li.done i{color:#7fae6a}
+.acts li.now{color:var(--ink)}.acts li.now i{color:var(--cinnabar)}.acts li.now strong{color:var(--gold)}
+.acts li small{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+.scl{display:grid;gap:8px}.sc{border:1px solid var(--line);padding:10px;display:grid;gap:6px;background:var(--bg)}.sc.cur{border-color:var(--gold)}.sc .saga-h h5{font-size:19px}.scacts{font-family:var(--sans);font-size:12px;color:var(--dim);line-height:1.6}
+.nw{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:baseline;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 0;text-align:left;cursor:pointer;width:100%}
+.ntag{font-family:var(--sans);font-size:11px;border:1px solid;padding:0 5px;white-space:nowrap}
+.ntx{font-size:14px;line-height:1.5}
+.nw em{grid-column:2;font-style:normal;font-family:var(--sans);font-size:11px;color:var(--dim)}
+.kid{margin-bottom:8px}.kbar{height:5px;background:var(--line);position:relative}.kbar i{position:absolute;left:0;top:0;bottom:0;background:#f0c27a}
+.sbar{height:4px;background:var(--line);position:relative}.sbar i{position:absolute;left:0;top:0;bottom:0;background:var(--cinnabar)}
+.jn{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;background:none;border:0;border-bottom:1px solid var(--line);padding:0 0 8px;text-align:left;cursor:pointer;align-items:start}
+.jn:last-child{border-bottom:0;padding-bottom:0}
+.jn .due{grid-row:span 2;font-size:11px;padding:1px 6px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.jn .due.today{border-color:var(--gold);color:var(--gold)}
+.jn .due.late{border-color:var(--cinnabar);color:var(--cinnabar)}
+.jn strong{font-weight:500;line-height:1.5}
+.jn span.w{color:var(--dim)}
+.loot{font-family:var(--sans);font-size:13px;color:var(--jade);text-align:center}
+.roll{align-self:center;display:grid;gap:2px;justify-items:center;font-family:var(--sans);font-size:13px;border:1px solid var(--line);padding:6px 14px}
+.roll strong{font-weight:500}
+.roll span{font-variant-numeric:tabular-nums;color:var(--dim)}
+.roll.win{border-color:var(--jade)} .roll.win strong{color:var(--jade)}
+.roll.lose{border-color:var(--cinnabar)} .roll.lose strong{color:var(--cinnabar)}
+.ending{border-top:1px solid var(--gold);border-bottom:1px solid var(--gold);padding-block:18px;text-align:center;display:grid;gap:10px;justify-items:center}
+.ending h3{margin:0;font-family:var(--brush);font-weight:400;font-size:36px;color:var(--gold)}
+.ending p{margin:0;line-height:1.8;max-width:30em}
+.pic{display:grid;gap:8px;justify-items:start;margin-top:-8px;max-width:34em;width:100%}
+.pic figure{margin:0;width:100%;border:1px solid var(--line);background:var(--surface);padding:6px}
+.pic img{display:block;width:100%;max-width:100%;aspect-ratio:16/10;object-fit:contain}
+.paintRow{display:flex;gap:16px;flex-wrap:wrap}
+.paint{background:transparent;border:0;border-bottom:1px solid var(--gold);color:var(--gold);font-family:var(--sans);font-size:13px;padding:2px 0;cursor:pointer}
+.paint:disabled{opacity:.7;cursor:default}
+.promptBox{display:grid;gap:8px;justify-items:start;width:100%;border:1px solid var(--line);background:var(--surface);padding:10px 12px}
+.promptBox pre{margin:0;white-space:pre-wrap;word-break:break-word;font-family:var(--sans);font-size:13px;line-height:1.6;user-select:text;-webkit-user-select:text}
+.promptBox p{margin:0;font-family:var(--sans);font-size:12px;color:var(--dim)}
+footer{padding-block:10px 12px;padding-inline:16px;border-top:1px solid var(--line);display:grid;gap:8px;background:var(--surface)}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;background:transparent;border:1px solid var(--line);padding:6px 12px;font-size:14px;cursor:pointer}
+.chip:hover{border-color:var(--gold);color:var(--gold)}
+.row{display:flex;gap:8px;align-items:flex-end}
+textarea{flex:1;min-width:0;resize:none;background:var(--bg);border:1px solid var(--line);padding:10px 12px;font-size:16px;line-height:1.5;max-height:120px;outline:none}
+textarea:focus{border-color:var(--gold)}
+.go{background:var(--cinnabar);color:#fff;border:0;padding:0 18px;height:46px;font-family:var(--brush);font-size:24px;cursor:pointer}
+.go.stop{background:var(--line);font-family:var(--sans);font-size:14px}
+.hint{font-family:var(--sans);font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:8px}
+.hint .sn{margin-left:auto;margin-right:12px;opacity:.8}
+.hint button{background:none;border:0;color:var(--dim);cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#menu{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 20%,#2a2219 0%,var(--bg) 70%);display:grid;place-items:center;padding-inline:16px;z-index:5;overflow-y:auto}
+.menu{max-width:420px;width:100%;display:grid;gap:16px;padding-block:28px}
+.menu h1{margin:0;font-family:var(--brush);font-weight:400;font-size:clamp(64px,22vw,104px);line-height:1}
+.menu h1 span{color:var(--cinnabar)}
+.blurb{font-size:15px;line-height:1.9;margin:0;color:#d8ccb8}
+.feats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-family:var(--sans);font-size:13px}
+.feats div{border:1px solid var(--line);padding:8px 10px;display:grid;gap:2px}
+.feats strong{font-family:var(--brush);font-weight:400;font-size:20px;color:var(--gold)}
+.feats span{color:var(--dim)}
+.field{display:grid;gap:6px;font-family:var(--sans);font-size:13px;color:var(--dim)}
+.field input{background:var(--surface);border:1px solid var(--line);padding:10px 12px;font-family:var(--serif);font-size:17px;outline:none}
+.els{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.els button{background:transparent;border:1px solid var(--line);padding:8px 0;font-family:var(--brush);font-size:24px;cursor:pointer;color:var(--dim)}
+.els button[aria-checked="true"]{color:var(--ec);border-color:var(--ec);background:color-mix(in srgb,var(--ec) 12%,transparent)}
+.elNote{font-size:12px;color:var(--dim);line-height:1.6;min-height:3.2em}
+.elb{display:inline-grid;place-items:center;width:22px;height:22px;font-family:var(--brush);font-size:16px;color:var(--ec);border:1px solid var(--ec);margin-left:6px;vertical-align:2px}
+.cyc{display:grid;gap:4px;color:var(--dim);line-height:1.6}
+.cyc b{color:var(--ink);font-weight:500}
+.roll em{font-style:normal;font-size:12px;color:var(--dim);text-align:center;max-width:28em}
+.big{background:var(--cinnabar);color:#fff;border:0;padding:12px;font-family:var(--brush);font-size:30px;letter-spacing:.2em;cursor:pointer}
+.ghost{background:transparent;border:1px solid var(--line);padding:10px;font-size:15px;cursor:pointer}
+.mode{display:flex;font-family:var(--sans);font-size:13px}
+.mode button{flex:1;background:transparent;border:1px solid var(--line);padding:6px 10px;cursor:pointer;color:var(--dim)}
+.mode button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.note{font-family:var(--sans);font-size:12px;color:var(--dim);line-height:1.6;margin:0}
+@media (prefers-reduced-motion:reduce){#log{scroll-behavior:auto}.track i{transition:none}}
+.slots{display:grid;gap:6px}
+.slotHead{font-family:var(--sans);font-size:12px;color:var(--dim);letter-spacing:.12em}
+.slot{display:flex;gap:6px;align-items:stretch}
+.slotGo{flex:1;min-width:0;display:grid;gap:2px;text-align:left;background:transparent;border:1px solid var(--line);padding:8px 12px;cursor:pointer}
+.slotGo strong{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slotGo span{font-family:var(--sans);font-size:12px;color:var(--dim)}
+.slotDel{flex:0 0 auto;background:transparent;border:1px solid var(--line);padding:0 12px;font-family:var(--sans);font-size:12px;color:var(--dim);cursor:pointer}
+.slotDel.armed{border-color:currentColor;color:#d9483b}
+</style>
+
+<div id="app">
+  <header>
+    <div class="top">
+      <div class="lv"><div><small>等级</small><b id="lv">1</b></div></div>
+      <div class="who">
+        <div class="nm"><strong><span id="nm">林啸</span><span class="elb" id="elb">土</span></strong><span id="where">青石镇</span></div>
+        <div class="bars">
+          <div class="bar"><span>气血<b id="hp">60</b></span><div class="track"><i id="hpB"></i></div></div>
+          <div class="bar"><span>内力<b id="qi">30</b></span><div class="track"><i id="qiB"></i></div></div>
+          <div class="bar"><span>修为<b id="xp">0</b></span><div class="track"><i id="xpB"></i></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="tools">
+      <button id="sBtn" aria-expanded="false">属性</button>
+      <button id="qBtn" aria-expanded="false">主线 <b id="qN">0</b>/5</button>
+      <button id="mBtn" aria-expanded="false">地图 <b id="mN">0</b></button>
+      <button id="kBtn" aria-expanded="false">武功 <b id="kN">1</b></button>
+      <button id="iBtn" aria-expanded="false">行囊 <b id="iN">0</b></button>
+      <button id="jBtn" aria-expanded="false">日志 <b id="jN">0</b></button>
+      <button id="rBtn" aria-expanded="false">关系 <b id="rN">0</b></button>
+      <button id="aBtn" aria-expanded="false">AI <b id="aN">关</b></button>
+    </div>
+    <div class="drawer" id="sPanel" hidden></div>
+    <div class="drawer rel" id="qPanel" hidden></div>
+    <div class="drawer rel" id="mPanel" hidden></div>
+    <div class="drawer" id="kPanel" hidden></div>
+    <div class="drawer" id="iPanel" hidden></div>
+    <div class="drawer" id="jPanel" hidden></div>
+    <div class="drawer rel" id="rPanel" hidden></div>
+    <div class="drawer" id="aPanel" hidden></div>
+    <div class="party" id="party" hidden></div>
+  </header>
+  <main id="log" aria-live="polite"></main>
+  <footer>
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <textarea id="act" rows="1" placeholder="你想做什么？比如：打坐 / 偷听 / 找人打听消息"></textarea>
+      <button class="go" id="go">行</button>
+    </div>
+    <div class="hint"><span id="status">点上面的选项，或写下你的行动</span><span class="sn" id="saveNote"></span><button id="ioBtn" style="margin-right:12px">存档</button><button id="toMenu">回到标题</button></div>
+  </footer>
+</div>
+
+<div id="menu">
+  <div class="menu">
+    <h1>剑影<span>江湖</span></h1>
+    <p class="blurb">北宋末年，血月教崛起。你本是青石镇铁匠之子，三日前师父在雨夜被一个戴血色面具的人杀死，临终只留下半块玉佩和一句话：「去……云隐寺……」</p>
+    <div class="feats">
+      <div><strong>打怪升级</strong><span>打赢涨修为，满了就升级</span></div>
+      <div><strong>学武功</strong><span>奇遇、拜师、捡秘籍</span></div>
+      <div><strong>追查血仇</strong><span>集齐线索，直捣血月教</span></div>
+      <div><strong>多重结局</strong><span>侠、魔、隐，由你抉择</span></div>
+    </div>
+    <label class="field">你的名字<input id="name" maxlength="6" placeholder="林啸"></label>
+    <div class="field">你的五行根骨
+      <div class="els" id="els" role="radiogroup" aria-label="五行根骨"></div>
+      <span class="elNote" id="elNote"></span>
+    </div>
+    <div class="field">AI 续写（可选）
+      <select id="provIn" style="background:var(--surface);border:1px solid var(--line);padding:8px 10px;color:var(--ink);font-size:14px"></select>
+      <input id="keyIn" type="password" autocomplete="off" placeholder="填入 xAI API Key（xai-…），留空则离线游玩">
+      <select id="modelIn" style="background:var(--surface);border:1px solid var(--line);padding:8px 10px;color:var(--ink);font-size:14px"></select>
+      <span class="elNote" id="keyNote"></span>
+    </div>
+    <button class="big" id="newGame">下山</button>
+    <p class="note" id="storeNote" hidden style="color:var(--gold);border:1px solid var(--gold);padding:8px 10px"></p>
+    <div class="slots" id="slots"></div>
+    <button class="ghost" id="ioBtn2">导入 / 导出存档</button>
+    <p class="note">填了 DeepSeek 或 Grok 的 API Key 时，剧情由 AI 当场续写（直接从你的浏览器调用，用的是你自己的额度；Key 只存在这台设备的浏览器里）。不填就用内置故事引擎离线游玩。出错时会自动退回离线剧情。进度存在这台设备的浏览器里。</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* 存储探测：不可用时退回内存 */
+const MEM={d:{},getItem(k){return k in this.d?this.d[k]:null},setItem(k,v){this.d[k]=String(v)},removeItem(k){delete this.d[k]},key(i){return Object.keys(this.d)[i]||null},get length(){return Object.keys(this.d).length}};
+let LS=MEM,LS_OK=false;try{const t=window.localStorage;t.setItem('jy-probe','1');if(t.getItem('jy-probe')==='1'){t.removeItem('jy-probe');LS=t;LS_OK=true;}}catch(_){}
+let STORE_RISK=!LS_OK;try{if(window.self!==window.top||/^(blob|data|about):/.test(location.protocol))STORE_RISK=true;}catch(_){STORE_RISK=true;}
+const $=id=>document.getElementById(id);
+const R=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[R(0,a.length-1)], chance=p=>Math.random()<p;
+const el=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;};
+const SAVE='jianying-save',IDX='jianying-index';
+const ELS={
+  金:{c:'#d9cfa8',note:'金主锐利。出手伤害更高。'},
+  木:{c:'#6fbf73',note:'木主生发。打坐、休息时恢复更多。'},
+  水:{c:'#5b9fe0',note:'水主柔变。内力上限更高。'},
+  火:{c:'#e8603f',note:'火主刚烈。更容易打出会心一击。'},
+  土:{c:'#c9965a',note:'土主厚重。气血上限更高，抗打耐揍。'}
+};
+let pickEl='土';
+function drawEls(){const box=$('els');box.textContent='';Object.keys(ELS).forEach(k=>{const b=el('button',null,k);b.type='button';b.setAttribute('role','radio');b.setAttribute('aria-checked',String(k===pickEl));b.style.setProperty('--ec',ELS[k].c);b.onclick=()=>{pickEl=k;drawEls();};box.append(b);});$('elNote').textContent=ELS[pickEl].note;}
+
+const LOC={
+ town:{n:"青石镇",d:["青石板路上细雨未干，酒旗在风里猎猎作响。","镇口茶摊热气氤氲，说书人正讲到紧要处。","集市喧嚣，卖刀的、卖药的、算命的挤作一团。"]},
+ forest:{n:"黑松林",d:["松涛如海，林间光影斑驳，隐约有野兽低吼。","枯枝在脚下断裂，你总觉得有双眼睛在暗处盯着。","雾气从林底升起，路径若有若无。"]},
+ temple:{n:"云隐寺",d:["古寺钟声悠远，檀香袅袅。","山门斑驳，石阶上落满银杏叶。","老僧扫地，扫帚声沙沙，仿佛扫的不是落叶而是尘心。"]},
+ river:{n:"沧浪江",d:["江水滔滔，渔舟唱晚。","渡口停着一艘乌篷船，船夫斗笠压得很低。","江风猎猎，远处水寨旌旗隐现。"]},
+ city:{n:"汴京",d:["京城繁华，朱楼画栋，车马如龙。","夜市灯火通明，暗巷里却有刀光一闪。","皇城根下，锦衣卫成队巡过。"]},
+ cult:{n:"血月教总坛",d:["黑石大殿阴风阵阵，血色月光透过穹顶洒下。","教众诵经声如鬼哭，石壁上刻满诡异符文。"]}
+};
+const ENEMY=[
+ {n:"山贼",hp:30,atk:6,lv:1},{n:"饿狼",hp:25,atk:7,lv:1},{n:"水匪",hp:40,atk:8,lv:2},
+ {n:"血月教徒",hp:55,atk:10,lv:3},{n:"黑衣刺客",hp:65,atk:13,lv:4},{n:"铁掌帮香主",hp:85,atk:14,lv:5},
+ {n:"血月护法",hp:120,atk:18,lv:7},{n:"锦衣卫千户",hp:110,atk:17,lv:6}
+];
+const SKILLS=[{n:"基础剑法",mp:0,m:1,d:"粗浅",el:null},{n:"流云剑诀",mp:8,m:1.45,need:"流云剑谱",d:"上乘",el:"水"},{n:"金刚掌",mp:12,m:1.75,need:"金刚掌诀",d:"绝学",el:"金"},{n:"太虚剑意",mp:20,m:2.3,need:"太虚残卷",d:"神功",el:"木"}];
+/* ===== 五行 ===== */
+const EL5=['金','木','水','火','土'];
+const KE={金:'木',木:'土',土:'水',水:'火',火:'金'};
+const SHENG5={金:'水',水:'木',木:'火',火:'土',土:'金'};
+const validEl=x=>{x=String(x||'').trim();const m={metal:'金',wood:'木',water:'水',fire:'火',earth:'土'};x=m[x.toLowerCase()]||x.slice(0,1);return EL5.includes(x)?x:null;};
+function elMul(a,d){if(!a||!d)return 1;if(KE[a]===d)return 1.3;if(KE[d]===a)return .75;return 1;}
+const hashEl=t=>{let h=0;for(const c of String(t))h=(h*31+c.charCodeAt(0))>>>0;return EL5[h%5];};
+const NAMED_EL={"锦衣卫千户":'金',"黑衣刺客":'水',"铁掌帮香主":'土',"血月护法":'火',"血月教主·萧寒":'土',"负伤的萧寒":'土',"血月教徒":'火',"水匪":'水',"饿狼":'木',"山贼":'土'};
+const elTag=e=>e?'【'+e+'】':'';
+const BOOKS=SKILLS.map(s=>s.need).filter(Boolean);
+const NPC=["醉酒的老剑客","卖唱的盲女","落魄书生","独臂刀客","神秘的红衣女子","化缘的小沙弥","满脸刀疤的镖师","算命瞎子"];
+
+let S=null,SLOT=null;
+function fresh(name,E){const s={name,el:E,lv:1,hp:60,mhp:60,mp:30,mmp:30,xp:0,gold:20,rep:0,karma:0,day:1,loc:"town",seen:["town"],inv:{"金疮药":2,"师父的旧剑":1},eq:{weapon:"师父的旧剑",armor:null,acc:null},gearDef:{},npcs:null,flags:{},clues:0,steps:0,fight:null,log:[],notes:[],choices:[],over:false,t:Date.now()};
+ if(E==='土'){s.mhp+=15;s.hp=s.mhp;} if(E==='水'){s.mmp+=10;s.mp=s.mmp;} return s;}
+
+/* ===== 输出层（沿用参考页的日志样式） ===== */
+function entry(e){const d=document.createElement('div');
+  if(e.k==='n'){d.className='n';d.textContent=e.t;if(e.img||e.pic){$('log').append(d);picBlock(e);return d;}}
+  else if(e.k==='p'){d.className='p';d.append(el('span','seal',(S.name||'侠').slice(-1)),el('span',null,e.t));}
+  else if(e.k==='s'){d.className='sys';d.textContent=e.t;}
+  else if(e.k==='u'){d.className='up';d.textContent=e.t;d.append(el('small',null,e.d||''));}
+  else if(e.k==='l'){d.className='loot';d.textContent=e.t;}
+  else if(e.k==='t'){d.className='settle';d.textContent=e.t;}
+  else if(e.k==='r'){d.className='roll'+(e.w?' win':' lose');d.append(el('strong',null,e.t));if(e.m)d.append(el('em',null,e.m));d.append(el('span',null,e.d||''));}
+  else if(e.k==='e'){d.className='ending';const b=el('button','ghost','再闯一回');b.onclick=()=>{$('menu').hidden=false;renderSlots();};d.append(el('h3',null,e.t),el('p',null,e.d||''),b);}
+  $('log').append(d);return d;}
+function push(e){S.log.push(e);if(S.log.length>120)S.log.shift();entry(e);const L=$('log');while(L.children.length>120)L.firstChild.remove();scroll();}
+function scroll(){const l=$('log');(window.requestAnimationFrame||setTimeout)(()=>l.scrollTop=l.scrollHeight);}
+// c: '' 叙事 / you 玩家 / sys 收获 / bad 系统提示 / set 结算
+function say(t,c){const k={you:'p',sys:'l',bad:'s',set:'t'}[c]||'n';const last=S.log[S.log.length-1];
+ if(k==='n'&&last&&last.k==='n'&&!last.img&&!last.pic&&last.t.length<160){last.t+='\n'+t;const ds=$('log').children;if(ds.length)ds[ds.length-1].textContent=last.t;scroll();return;}
+ push({k,t});}
+function note(t){S.notes.unshift('第'+S.day+'日 · '+t);}
+function redraw(){$('log').textContent='';S.log.forEach(entry);scroll();}
+function show(choices){exportReminder();S._c=choices;S.choices=choices.map(c=>c[0]);const c=$('chips');c.textContent='';
+ choices.forEach((ch,i)=>{const b=el('button','chip',ch[0]);b.onclick=()=>act(i);c.append(b);});ui();save();}
+
+/* ===== 状态栏与面板 ===== */
+const need=()=>S.lv*40;
+function ui(){$('lv').textContent=S.lv;$('nm').textContent=S.name;$('elb').textContent=S.el;$('elb').style.setProperty('--ec',ELS[S.el].c);
+ $('where').textContent=(S.place||LOC[S.loc].n)+' · 第'+S.day+'日';$('aN').textContent=aiOn()?'开':'关';
+ $('hp').textContent=S.hp+'/'+S.mhp;$('qi').textContent=S.mp+'/'+S.mmp;$('xp').textContent=S.xp+'/'+need();
+ $('hpB').style.width=(S.hp/S.mhp*100)+'%';$('qiB').style.width=(S.mp/S.mmp*100)+'%';$('xpB').style.width=(S.xp/need()*100)+'%';
+ $('qN').textContent=Math.min(S.clues,5);$('mN').textContent=S.seen.length;$('kN').textContent=mySkills().length;
+ $('iN').textContent=Object.values(S.inv).reduce((a,b)=>a+b,0);$('jN').textContent=S.notes.length;$('rN').textContent=npcList().length;
+ const pt=$('party');pt.hidden=!S.flags.allyOn;pt.textContent='';if(S.flags.allyOn){pt.append('同行：');pt.append(el('button',null,'柳青'));}
+ renderPanels();}
+const mySkills=()=>SKILLS.filter(s=>!s.need||S.inv[s.need]).concat((S.xsk||[]).map(n=>({n,mp:10,m:1.5,d:'奇遇',el:(S.xskEl&&S.xskEl[n])||hashEl(n)})));
+const skillEl=s=>s.el||weaponEl();
+function group(title,list,cls,empty){const g=el('section','grp');g.append(el('h4',null,title));const d=el('div');
+ if(!list.length)d.append(el('span','empty',empty||'暂无'));list.forEach(x=>d.append(el('span','tag '+(cls||''),x)));g.append(d);return g;}
+function kv(pairs){const d=el('div','kv');pairs.forEach(([k,v])=>{const s=el('span',null,k+' ');s.append(el('b',null,String(v)));d.append(s);});return d;}
+function closer(p,t){const cl=el('button','rclose',t||'收起');cl.onclick=closeAll;p.append(cl);}
+function renderPanels(){
+ let p=$('sPanel');p.textContent='';
+ p.append(kv([['姓名',S.name],['根骨',S.el+'属'],['等级',S.lv],['攻击',atkStat()],['防御',defStat()],['银两',S.gold],['侠名',S.rep],['善恶',S.karma>0?'+'+S.karma:S.karma],['天数',S.day]]));
+ p.append(el('div','cyc',ELS[S.el].note));p.append(el('div','cyc','五行相克：金克木、木克土、土克水、水克火、火克金。以克制之属出招伤害 ×1.3，被克 ×0.75。护甲克制来招之属减伤 15%，被克则多受 15%。相生（金生水、水生木、木生火、火生土、土生金）：招式之属生你的根骨时，回复少许内力。'));p.append(group('装备',Object.keys(SLOTN).map(k=>SLOTN[k]+'：'+(S.eq[k]?S.eq[k]+'（'+gearTxt(gearOf(S.eq[k]))+'）':'无')),'gear'));closer(p);
+ p=$('qPanel');p.textContent='';const sh=el('div','saga-h');sh.append(el('h5',null,'血月之仇'),el('small',null,'线索 '+Math.min(S.clues,5)+'/5'));p.append(sh);
+ const steps=[['拜见云隐寺住持',S.flags.monk],['查探黑松林营地',S.flags.camp],['寻访沧浪江船夫',S.flags.boat],['夜探汴京锦衣卫',S.flags.palace],['直捣血月教总坛',S.flags.boss]];
+ const ul=el('ul','acts');let nowSet=false;steps.forEach(([t,d])=>{const li=el('li',d?'done':(!nowSet?'now':''));if(!d&&!nowSet)nowSet=true;li.append(el('i',null,d?'✓':'·'));const s=el('strong',null,t);li.append(s);ul.append(li);});p.append(ul);
+ p.append(el('div','rhint',S.flags.cultMap?'你已得到血月总坛地图，可从地图前往。':'集齐线索、拿到总坛地图后才能找到血月教。'));closer(p,'收起主线');
+ p=$('mPanel');p.textContent='';const mc=el('div','mchips');mc.append(el('h6',null,'已知地点（点击前往）'));
+ Object.keys(LOC).filter(k=>k!=='cult'||S.flags.cultMap).forEach(k=>{const b=el('button',k===S.loc?'cur':'',LOC[k].n+(S.seen.includes(k)?'':'（未至）'));b.onclick=()=>{closeAll();if(S.over||S.fight||k===S.loc)return;say('▸ 前往'+LOC[k].n,'you');goTo(k);};mc.append(b);});p.append(mc);closer(p,'收起地图');
+ p=$('kPanel');p.textContent='';p.append(group('已学武功',mySkills().map(s=>s.n+elTag(skillEl(s))+'（'+s.d+(s.mp?'·内力'+s.mp:'')+(s.el?'':'·随兵器')+'）'),'sk'));
+ p.append(group('未得秘籍',SKILLS.filter(s=>s.need&&!S.inv[s.need]).map(s=>'？？？'),'', '已全部习得'));closer(p);
+ p=$('iPanel');p.textContent='';const idv=el('div','grp');idv.append(el('h4',null,'行囊'));const box=el('div');
+ const ks=Object.keys(S.inv);if(!ks.length)box.append(el('span','empty','空空如也'));
+ ks.forEach(k=>{const g=gearOf(k);const on=g&&S.eq[g.t]===k;const b=el('button','tag gear itm'+(on?' sel':''),k+(S.inv[k]>1?'×'+S.inv[k]:'')+(g?'（'+gearTxt(g)+(on?'·已装备':'')+'）':''));b.onclick=()=>{if(g){if(S.over)return;if(S.fight){say('交手之际来不及更换装备。','bad');return;}on?unequip(k):equip(k);ui();save();return;}closeAll();if(S.over)return;if(BOOKS.includes(k)){say('秘籍已熟记于心，战斗时可直接施展。','bad');return;}if(S.fight){say('▸ 服用'+k,'you');useItem(k,true);}else{say('▸ 服用'+k,'you');useItem(k,false);}};box.append(b);});
+ idv.append(box);p.append(idv);p.append(el('div','rhint','点药品直接服用；点兵器、护甲、饰品可装备或卸下（每类一件）。'));closer(p);
+ p=$('jPanel');p.textContent='';const rows=el('div','rows');if(!S.notes.length)rows.append(el('div','empty','还没有记事。'));
+ S.notes.slice(0,40).forEach(t=>{const r=el('div','rw');r.append(el('strong',null,t));rows.append(r);});p.append(rows);closer(p);
+ if(typeof renderAI==='function')renderAI();renderRel();}
+const PANELS=[['sBtn','sPanel'],['qBtn','qPanel'],['mBtn','mPanel'],['kBtn','kPanel'],['iBtn','iPanel'],['jBtn','jPanel'],['rBtn','rPanel'],['aBtn','aPanel']];
+function closeAll(){PANELS.forEach(([b,p])=>{$(p).hidden=true;$(b).setAttribute('aria-expanded','false');});}
+function toggle(bId,pId){const open=$(pId).hidden;closeAll();$(pId).hidden=!open;$(bId).setAttribute('aria-expanded',String(open));}
+PANELS.forEach(([b,p])=>{$(b).onclick=()=>toggle(b,p);});
+$('where').style.cursor='pointer';$('where').onclick=()=>toggle('mBtn','mPanel');
+
+/* ===== 装备 ===== */
+const GEAR={"师父的旧剑":{t:'weapon',atk:2,def:0,el:null},"精钢剑":{t:'weapon',atk:6,def:0,el:'金'},"寒铁刀":{t:'weapon',atk:9,def:0,el:'水'},"青锋剑":{t:'weapon',atk:12,def:0,el:'木'},
+ "皮甲":{t:'armor',atk:0,def:3,el:'土'},"锁子甲":{t:'armor',atk:0,def:6,el:'金'},"金丝软甲":{t:'armor',atk:0,def:10,el:'火'},"玉佩护符":{t:'acc',atk:1,def:2,el:'水'},"铁护腕":{t:'acc',atk:2,def:1,el:'金'}};
+const weaponEl=()=>{const g=S.eq&&S.eq.weapon&&gearOf(S.eq.weapon);return (g&&g.el)||S.el;};
+const armorEl=()=>{const g=S.eq&&S.eq.armor&&gearOf(S.eq.armor);return (g&&g.el)||null;};
+const SLOTN={weapon:'兵器',armor:'护甲',acc:'饰品'};
+const gearOf=n=>(S.gearDef&&S.gearDef[n])||GEAR[n]||null;
+function atkStat(){let a=S.lv*2+(S.el==='金'?2:0),g2=0;Object.values(S.eq).forEach(n=>{const g=n&&gearOf(n);if(g)g2+=g.atk;});return a+Math.round(g2*.7);}
+function defStat(){let d=Math.floor(S.lv/2)+(S.el==='土'?1:0),g2=0;Object.values(S.eq).forEach(n=>{const g=n&&gearOf(n);if(g)g2+=g.def;});return d+Math.round(g2*.8);}
+function gearTxt(g){return [SLOTN[g.t]+(g.el?'·'+g.el:''),g.atk?'攻+'+g.atk:'',g.def?'防+'+g.def:''].filter(Boolean).join('·');}
+function equip(n,quiet){const g=gearOf(n);if(!g||!S.inv[n])return;const old=S.eq[g.t];S.eq[g.t]=n;if(!quiet)say('你'+(old?'卸下'+old+'，':'')+'装备上【'+n+'】（'+gearTxt(g)+'）。','sys');}
+function unequip(n){Object.keys(S.eq).forEach(k=>{if(S.eq[k]===n)S.eq[k]=null;});say('你卸下了【'+n+'】。','sys');}
+function gainGear(n,def,auto){if(def){S.gearDef=S.gearDef||{};S.gearDef[n]=def;}item(n);const g=gearOf(n);if(!g)return;const cur=S.eq[g.t]&&gearOf(S.eq[g.t]);
+ if(auto&&(!cur||(g.atk+g.def)>(cur.atk+cur.def)))equip(n);}
+function lootGear(lv){const pool=lv>=6?["青锋剑","金丝软甲","寒铁刀","锁子甲"]:lv>=3?["寒铁刀","锁子甲","铁护腕","精钢剑"]:["皮甲","铁护腕","玉佩护符","精钢剑"];return pick(pool);}
+
+/* ===== 人物关系 ===== */
+let QUIET=false;
+function relLabel(v){return v<=-60?'死敌':v<=-20?'仇视':v<20?'陌生':v<50?'友好':v<80?'知己':'生死之交';}
+const relColor=v=>v>=60?'#e0628a':v>=20?'#e0b04f':v>-20?'#7d7262':v>-60?'#d9883b':'#d9483b';
+function meet(name,o){S.npcs=S.npcs||{};let n=S.npcs[name];const isNew=!n;
+ if(!n){n=S.npcs[name]={n:name,rel:0,ev:[],status:'在世',met:(S.place||LOC[S.loc].n),metDay:S.day};}
+ ['title','sect','age','look','pers','lv','sp','status','where'].forEach(k=>{if(o&&o[k]!=null&&o[k]!=='')n[k]=o[k];});
+ if(o&&o.rel){if(isNew)n.rel=Math.max(-100,Math.min(100,o.rel));else rel(name,o.rel,null,{major:1});}if(o&&o.ev)n.ev.push('第'+S.day+'日 '+o.ev);if(n.ev.length>12)n.ev=n.ev.slice(-12);
+if(isNew&&!QUIET)say('结识【'+name+'】'+(n.title?'（'+n.title+'）':''),'sys');return n;}
+const SP_NEED={知己:50,恋人:65,结义:70,生死之交:85};
+function spOk(n,sp,ev){if(!sp)return true;const need=SP_NEED[sp];if(!need)return true;return n.rel>=need&&!!ev;}
+/* opt: major=剧情大事（不打 1/3 折扣）；raw=AI 已限幅的数值；act=重复行为冷却键 */
+function rel(name,d,ev,opt){const n=S.npcs&&S.npcs[name];if(!n||!d)return;opt=opt||{};
+ if(d>0){if(!opt.major&&!opt.raw)d=d/3;
+  if(opt.act){n.cd=n.cd||{};const c=n.cd[opt.act]||{day:-99,k:0};if(S.day-c.day<3){if(!QUIET)say(name+'只是淡淡点头，并未更亲近（同样的举动近日已做过）。','bad');n.cd[opt.act]={day:c.day,k:c.k+1};return;}
+   d=d/(1+c.k*.5);n.cd[opt.act]={day:S.day,k:c.k+1};}
+  if(n.rel>=80)d/=4;else if(n.rel>=50)d/=2;
+  d=Math.floor(d)+(Math.random()<d-Math.floor(d)?1:0);if(!d){if(!QUIET)say(name+'对你的态度没什么变化。','bad');return;}}
+ n.rel=Math.max(-100,Math.min(100,n.rel+d));if(ev){n.ev.push('第'+S.day+'日 '+ev);if(n.ev.length>12)n.ev=n.ev.slice(-12);}
+ if(!QUIET)say(name+' 好感 '+(d>0?'+':'')+d+'（'+(n.sp||relLabel(n.rel))+'）',d>0?'sys':'bad');}
+const NPCINFO={"醉酒的老剑客":{title:'落魄剑客',sect:'无门无派',age:'六十余岁',look:'须发蓬乱，腰挂酒葫芦，背一柄无鞘铁剑',pers:'嗜酒，豪爽，言语中藏着往事',lv:'深不可测'},
+ "卖唱的盲女":{title:'卖唱女',sect:'无',age:'二十出头',look:'素衣荆钗，双目蒙着白纱，怀抱琵琶',pers:'温婉安静，耳力过人',lv:'不会武功'},
+ "落魄书生":{title:'赶考书生',sect:'无',age:'二十五六',look:'青衫洗得发白，背着书箱',pers:'迂腐却正直，消息灵通',lv:'不会武功'},
+ "独臂刀客":{title:'江湖刀客',sect:'曾属铁掌帮',age:'四十上下',look:'右袖空荡，左手握一柄厚背砍刀',pers:'沉默寡言，恩怨分明',lv:'一流好手'},
+ "神秘的红衣女子":{title:'来历不明',sect:'不详',age:'二十许',look:'一身红衣如火，眉目明艳，腰间软鞭',pers:'喜怒无常，似敌似友',lv:'高手'},
+ "化缘的小沙弥":{title:'云隐寺沙弥',sect:'云隐寺',age:'十八九岁',look:'光头圆脸，僧衣打着补丁',pers:'天真憨厚',lv:'略通拳脚'},
+ "满脸刀疤的镖师":{title:'威远镖局镖师',sect:'威远镖局',age:'三十五六',look:'满脸刀疤，膀大腰圆',pers:'粗豪仗义，好酒',lv:'二流好手'},
+ "算命瞎子":{title:'算命先生',sect:'无',age:'五十余岁',look:'墨镜长幡，拄一根竹杖',pers:'神神叨叨，偶有真言',lv:'不详'}};
+function npcInit(){S.npcs={};QUIET=true;meet('师父',{title:'铁匠·你的授业恩师',sect:'云隐寺俗家弟子',age:'五十余岁',look:'身形魁梧，双手布满老茧',pers:'沉稳寡言，外冷内热',lv:'一流高手',sp:'师徒',status:'已故（雨夜遇害）',rel:90,ev:'雨夜遇害，临终托付半块玉佩'});
+ meet('血色面具人',{title:'杀师仇人',sect:'疑似血月教',age:'不详',look:'戴血色面具，身披黑氅',pers:'狠辣',lv:'绝顶高手',status:'下落不明',rel:-80,ev:'杀害师父'});QUIET=false;}
+function migrate(){if(!S.eq){S.eq={weapon:null,armor:null,acc:null};S.inv=S.inv||{};S.inv['师父的旧剑']=1;S.eq.weapon='师父的旧剑';if(S.flags&&S.flags.sword){S.inv['精钢剑']=1;S.eq.weapon='精钢剑';}}
+ if(!S.npcs){npcInit();QUIET=true;if(S.flags.monk)meet('慧明大师',{title:'云隐寺住持',rel:30});if(S.flags.boat)meet('沧浪老妪',{title:'沧浪派传人',rel:30});
+  if(S.flags.ally)meet('柳青',{title:'师父之女',rel:S.flags.allyOn?40:-5,sp:S.flags.allyOn?'同伴':''});QUIET=false;}}
+const npcList=()=>Object.values(S.npcs||{});
+let relSel=null;
+function renderRel(){const p=$('rPanel');if(!p)return;p.textContent='';const L=npcList().sort((a,b)=>Math.abs(b.rel)-Math.abs(a.rel));
+ if(!L.length){p.append(el('div','empty','还没有结识任何人。'));closer(p,'收起关系');return;}
+ const ul=el('div','rlist');L.forEach(n=>{const r=el('button','rrow'+(relSel===n.n?' sel':'')+(/已故|身亡|死/.test(n.status||'')?' gone':''));
+  const dot=el('span','rdot');dot.style.background=relColor(n.rel);const nm=el('strong',null,n.n);
+  const meta=el('span','rmeta',[n.sp||relLabel(n.rel),n.title].filter(Boolean).join(' · '));
+  const bar=el('span','rbar');const i=el('i');const v=n.rel;i.style.cssText=(v>=0?'left:50%;width:':'right:50%;width:')+Math.abs(v)/2+'%;background:'+relColor(v);bar.append(i);
+  r.append(dot,nm,meta,bar,el('em',null,(v>0?'+':'')+v));r.onclick=()=>{relSel=relSel===n.n?null:n.n;renderRel();};ul.append(r);
+  if(relSel===n.n)ul.append(relCard(n));});
+ p.append(ul);closer(p,'收起关系');}
+function relCard(n){const c=el('div','rcard');const h=el('h5',null,n.n);h.append(el('small',null,n.title||''));const x=el('button','rx','×');x.onclick=()=>{relSel=null;renderRel();};h.append(x);c.append(h);
+ const a=el('div','aff');const sp=el('span');sp.append(el('span',null,n.sp?n.sp+' · '+relLabel(n.rel):relLabel(n.rel)));sp.append(el('b',null,String(n.rel)));
+ const tr=el('div','tr');const i=el('i');i.style.cssText=(n.rel>=0?'left:50%;width:':'right:50%;width:')+Math.abs(n.rel)/2+'%;background:'+relColor(n.rel);tr.append(i);a.append(sp,tr);c.append(a);
+ c.append(kv([['门派',n.sect||'不详'],['年纪',n.age||'不详'],['武功',n.lv||'不详'],['状态',n.status||'在世']]));
+ if(n.where)c.append(kv([['所在',n.where]]));
+ if(n.look)c.append(el('div','rdesc','相貌：'+n.look));if(n.pers)c.append(el('div','rdesc','性情：'+n.pers));
+ c.append(el('div','rhint','初识：第'+n.metDay+'日 · '+n.met));
+ if(n.ev&&n.ev.length){const rows=el('div','rows');n.ev.slice().reverse().forEach(t=>{const r=el('div','rw');r.append(el('span',null,t));rows.append(r);});c.append(rows);}
+ const box=el('div','pic');if(n.pic){const f=el('figure');const im=el('img');im.src=n.pic;im.alt=n.n+'画像';im.onclick=()=>zoom(n.pic);im.onerror=()=>{f.remove();n.pic='';};f.append(im);box.append(f);}c.append(box);
+ const bx=el('div','rbtns');if(typeof imgKey==='function'&&imgKey()&&n.n!=='血色面具人'){const b=el('button','go2',n.pic?'重画画像':'画像');b.onclick=()=>npcPaint(n,box,b);bx.append(b);}
+ const g=el('button','go2 team','去找'+n.n);g.onclick=()=>{ta.value='去找'+n.n+(n.where?'（'+n.where+'）':'');autosize();closeAll();};if(!/已故|身亡/.test(n.status||''))bx.append(g);c.append(bx);return c;}
+async function npcPaint(n,box,btn){btn.disabled=true;const isLiu=n.n==='柳青';
+ const e={it:'c',img:'a half-body portrait of '+(isLiu?'Liu Qing':'this character')+', looking toward the viewer, '+(n.where||'in a misty wuxia landscape'),cd:isLiu?'':'an adult '+(n.age?'('+n.age+') ':'')+'Chinese wuxia character: '+[n.title,n.look,n.pers].filter(Boolean).join(', '),_box:box};
+ if(n.n==='师父')e.cd='a dignified adult Chinese blacksmith-swordsman in his fifties, strong build, calloused hands, plain dark robe: '+(n.look||'');
+ await paint(e);btn.disabled=false;if(e.pic){n.pic=e.pic;save();}}
+
+/* ===== 基础机制 ===== */
+function gainXp(x){S.xp+=x;say('修为 +'+x,'sys');while(S.xp>=need()){S.xp-=need();S.lv++;S.mhp+=18;S.mmp+=10;S.hp=S.mhp;S.mp=S.mmp;push({k:'u',t:'突破·第'+S.lv+'重',d:'气血上限 +18，内力上限 +10，伤势尽复'});note('突破至第'+S.lv+'重境界');}}
+function item(n,k){S.inv[n]=(S.inv[n]||0)+(k||1);if(S.inv[n]<=0)delete S.inv[n];if(k!==-1)say('获得【'+n+'】','sys');}
+function hurt(d){S.hp=Math.max(0,S.hp-d);}
+function heal(h){S.hp=Math.min(S.mhp,S.hp+h);}
+function addClue(t){S.clues++;note('线索：'+t);say('获得线索：'+t,'sys');}
+function act(i){const c=S._c&&S._c[i];if(!c||S.over||AI.busy)return;closeAll();say('▸ '+c[0],'you');S.steps++;
+ if(aiOn()&&!S.fight&&!c[2])return aiTurn(c[0],c[1]);c[1]();}
+function go(){if(S.over)return;S.place='';if(S.fight)return fightMenu();if(S.hp<=0)return death();checkEnd()||hub();}
+
+/* ===== 主线 ===== */
+function intro(){
+ say('北宋末年，血月教崛起，江湖人心惶惶。');
+ say(S.name+'，你本是青石镇铁匠之子。三日前，师父在雨夜被一名戴血色面具的人杀死，临终只留下半块玉佩和一句话：「去……云隐寺……」');
+ say('如今你背着师父留下的旧剑，站在镇口。前路茫茫，恩怨未了。');
+ note('师父遇害，踏上复仇之路');npcInit();
+ show([["先去酒馆打听消息",()=>{say('酒馆里人声嘈杂，掌柜悄悄说：「最近黑松林常有血月教的人出没，你师父生前也去过那儿。」');addClue('师父曾去黑松林');go();}],
+  ["直奔云隐寺",()=>goTo('temple')],
+  ["检查玉佩",()=>{say('玉佩背面刻着一个「沧」字和细小的水波纹。也许与沧浪江有关。');S.flags.jade=1;addClue('玉佩与沧浪江有关');go();}]]);}
+function hub(){
+ const L=LOC[S.loc];
+ if(S.steps>1&&chance(0.45)&&!S._skip){S._skip=1;return randomEvent();}
+ S._skip=0;if(chance(.5))S.day++;if(S.hp<S.mhp)heal(Math.round(S.mhp*.06));
+ say(pick(L.d));
+ const c=[];const sp=story();if(sp)c.push(sp);
+ c.push(["四处探索",()=>randomEvent()]);
+ if(S.loc==="town"||S.loc==="city")c.push(["去客栈休息（10两）",()=>{if(S.gold<10){say('掌柜白你一眼：「没钱住什么店？」你只得在柴房凑合一夜。');heal(15);}else{S.gold-=10;S.hp=S.mhp;S.mp=S.mmp;say('一夜好眠，气血内力尽复。','sys');}S.day++;go();}],["逛集市",shop]);
+ else c.push(["打坐调息",()=>{heal(R(8,15)+S.lv*2+(S.el==='木'?10:0));S.mp=Math.min(S.mmp,S.mp+15+(S.el==='木'?10:0));say('你闭目运气，周天流转，身体舒泰了许多。');if(chance(.25)){say('忽然一阵风声——有人偷袭！');return startFight();}go();}]);
+ c.push(["前往他处",travel]);
+ show(c.slice(0,4));}
+function goTo(k){S.loc=k;S.day++;if(!S.seen.includes(k))S.seen.push(k);say('你踏上旅途，风尘仆仆来到'+LOC[k].n+'。');if(chance(.3)){say('半路杀出拦路之人！');startFight();}else go();}
+function travel(){const ks=Object.keys(LOC).filter(k=>k!==S.loc&&(k!=="cult"||S.flags.cultMap));
+ show(ks.map(k=>["去"+LOC[k].n,()=>goTo(k)]).concat([["算了，留在这里",go]]));}
+function story(){const f=S.flags;
+ if(S.loc==="temple"&&!f.monk)return["拜见住持",()=>{f.monk=1;say('住持慧明大师看了玉佩良久，叹道：「你师父是我俗家弟子。血月教主欲集齐七块玉佩，开启前朝宝库。你这半块，便是钥匙之一。」大师传你金刚掌心法，嘱你小心。');meet('慧明大师',{title:'云隐寺住持',sect:'云隐寺',age:'七十余岁',look:'白眉垂颊，身披旧袈裟',pers:'慈悲睿智',lv:'绝顶高手',where:'云隐寺',rel:35,ev:'传授金刚掌诀'});item("金刚掌诀");addClue('血月教主在收集玉佩');go();}];
+ if(S.loc==="forest"&&!f.camp)return["循着痕迹深入林中",()=>{say('你在林深处发现一座废弃营地，地上有血月标记，几名教徒正在焚烧信件。');show([["冲上去！",()=>{f.camp=1;startFight(ENEMY[3],()=>{say('你从灰烬中抢出半封信：「……沧浪江水寨……月圆之夜……」');addClue('月圆之夜，沧浪江水寨');go();});}],["潜伏偷听",()=>{f.camp=1;if(chance(.6)){say('你听到他们说护法将在汴京与锦衣卫密会。');addClue('护法与锦衣卫在汴京密会');f.cityLead=1;}else{say('你踩断了一根枯枝！');return startFight(ENEMY[3]);}go();}],["悄悄离开",()=>{say('你决定先保存实力。');go();}]]);}];
+ if(S.loc==="river"&&!f.boat&&(f.jade||S.clues>=2))return["向乌篷船夫出示玉佩",()=>{f.boat=1;say('船夫掀开斗笠，竟是一位白发老妪：「沧浪派最后的传人，等你很久了。」她赠你流云剑谱，并告诉你另半块玉佩在血月护法手中。');meet('沧浪老妪',{title:'沧浪派最后的传人',sect:'沧浪派',age:'七十上下',look:'白发如雪，斗笠蓑衣，目光如电',pers:'孤傲而重情',lv:'一流高手',where:'沧浪江渡口',rel:35,ev:'赠流云剑谱'});item("流云剑谱");addClue('另半块玉佩在血月护法手中');go();}];
+ if(S.loc==="city"&&!f.palace&&(f.cityLead||S.lv>=4))return["夜探锦衣卫衙门",()=>{f.palace=1;say('你翻墙入院，见千户正与血月护法交换密函。千户察觉，拔刀而来！');meet('锦衣卫千户',{title:'锦衣卫千户·血月内应',sect:'锦衣卫',age:'四十许',look:'飞鱼服，绣春刀，鹰钩鼻',pers:'阴鸷贪婪',lv:'一流好手',rel:-50,ev:'与血月护法勾结，被你撞破'});startFight(Object.assign({named:1},ENEMY[7]),()=>{say('你在千户身上搜到一张血月总坛地图，还有一卷发黄的残卷！');item("太虚残卷");f.cultMap=1;addClue('血月总坛在北山血月峰');S.rep+=10;go();});}];
+ if(S.loc==="cult"&&!f.boss)return["闯入大殿，直面教主",bossIntro];
+ if(S.loc==="town"&&S.clues>=3&&!f.ally)return["回铁匠铺看看",()=>{f.ally=1;say('铁匠铺里，竟有一位女子在等你——她自称是师父的女儿柳青：「我要和你一起报仇。」');meet('柳青',{title:'师父之女',sect:'承父亲武学',age:'二十二岁',look:'眉目清丽，长发以玉簪半挽，一袭淡绿衣裙，腰悬短剑',pers:'倔强果敢，外冷内热',lv:'二流好手',where:'青石镇铁匠铺',rel:20,ev:'在铁匠铺相认'});show([["欣然同行",()=>{f.allyOn=1;note('柳青加入同行');rel('柳青',12,'结伴同行，誓报父仇',{major:1});S.npcs['柳青'].sp='同伴';say('柳青加入了你。战斗中她会助你一臂之力。','sys');go();}],["独自上路更安全",()=>{say('柳青咬唇：「那你保重。」她转身消失在雨巷。');S.karma--;rel('柳青',-15,'被你拒绝同行');S.npcs['柳青'].where='下落不明';go();}]]);}];
+ return null;}
+function randomEvent(){
+ const evs=[
+  ()=>{say('路边蹿出一伙人，喝道：「此路是我开！」');startFight();},
+  ()=>{const n=pick(NPC);say('路边遇到一位'+n+'，似乎有话要说。');show([["上前搭话",()=>talkNpc(n)],["施舍些银两（5两）",()=>{if(S.gold>=5){S.gold-=5;S.karma++;S.rep+=2;meet(n,Object.assign({},NPCINFO[n]));rel(n,12,'你慷慨解囊',{act:'gift'});say(n+'感激道：「好人有好报。」随后低声告诉你一个秘密。');if(chance(.5))addClue(n+'透露的秘闻');else item("金疮药");}else say('你摸了摸空空的钱袋，尴尬一笑。');go();}],["不理会",go]]);},
+  ()=>{const g=R(5,25);say('你在草丛里发现一个破旧包袱，里面有'+g+'两银子。');show([["收下",()=>{S.gold+=g;say('银两 +'+g,'sys');go();}],["等失主回来",()=>{say('一个小孩哭着跑来找包袱，你物归原主。孩子的爷爷是退隐的高手，指点了你几招。');S.karma+=2;gainXp(25);go();}]]);},
+  ()=>{say('一只受伤的白鹤落在你面前，翅膀上缠着一张纸条。');show([["救治白鹤",()=>{S.karma++;say('纸条写着：「血月教主惧怕太虚剑意。」白鹤长鸣而去。');S.flags.weak=1;note('得知教主惧怕太虚剑意');go();}],["取下纸条就走",()=>{say('纸条上的字已被血迹模糊。');go();}]]);},
+  ()=>{say('你遇到一处山洞，洞口刻着「入者生死自负」。');show([["进洞",()=>{if(chance(.5)){say('洞中石壁刻着前辈的剑招，你观摩半日，大有所获。');gainXp(30+S.lv*5);}else{const d=R(8,18);hurt(d);say('机关触发，毒箭射来！气血 -'+d,'bad');}go();}],["离开",go]]);},
+  ()=>{say('一名黑衣人与白衣书生激斗，书生已落下风。');show([["助书生",()=>startFight(Object.assign({named:1},ENEMY[4]),()=>{say('书生拱手：「在下是丐帮弟子，此恩必报。」赠你银两与线索。');meet('丐帮书生',{title:'丐帮弟子',sect:'丐帮',age:'二十七八',look:'白衣书生打扮，袖口却打着丐帮补丁',pers:'机敏重义',lv:'二流好手',rel:30,ev:'被你从黑衣人手下救出'});S.gold+=30;addClue('丐帮弟子的情报');S.rep+=5;go();})],["助黑衣人",()=>{S.karma-=2;say('你与黑衣人联手击杀书生。黑衣人抛给你一袋金子：「血月教欢迎你这样的人。」');meet('黑衣使者',{title:'血月教使者',sect:'血月教',look:'黑巾蒙面',pers:'冷漠',lv:'一流好手',rel:20,ev:'与你联手杀了书生'});S.gold+=60;S.flags.dark=(S.flags.dark||0)+1;note('与血月教为伍');go();}],["袖手旁观",go]]);},
+  ()=>{say('一个酒鬼拉住你要比酒。');show([["比就比！",()=>{if(chance(.5+S.lv*.03)){say('你喝趴了酒鬼，他醒来哈哈大笑，竟是丐帮长老，传你内功一段。内力上限 +10');S.mmp+=10;S.mp=S.mmp;}else{say('你醉得不省人事，醒来钱袋少了一半。');S.gold=Math.floor(S.gold/2);}go();}],["婉拒",go]]);},
+  ()=>{say('你在溪边采到一株灵芝。');item("灵芝");go();},
+  ()=>{say('天色骤变，暴雨倾盆。你找了个破庙避雨，庙里已有一人烤火……');show([["与他共饮",()=>{say('那人自称「无名」，与你畅谈江湖，临别留下一句：「血月教总坛在北山血月峰。」');addClue('无名客的提点');go();}],["保持警惕",()=>{if(chance(.4)){say('他果然暴起偷袭！');startFight();}else{say('一夜无事，天明他已不见。');go();}}]]);}
+ ];
+ pick(evs)();}
+function talkNpc(n){const lines=["听说血月教主每逢月圆之夜功力最弱。","汴京的锦衣卫和血月教勾结，大人物都靠不住。","沧浪江上的老船娘，可不是一般人。","云隐寺住持年轻时是天下第一掌。","黑松林西边有个山洞，进去的人一半没出来。"];
+ const l=pick(lines);say(n+'说：「'+l+'」');if(NPCINFO[n]){const nn=meet(n,Object.assign({},NPCINFO[n]));rel(n,5,'闲谈：'+l.slice(0,12),{act:'chat'});}if(chance(.3))addClue(l.slice(0,10)+'……');gainXp(5);go();}
+function shop(){show([["买金疮药（15两）",()=>{if(S.gold>=15){S.gold-=15;item("金疮药");}else say('银子不够。','bad');shop();}],["买精钢剑（80两）",()=>{if(S.inv['精钢剑'])say('你已有精钢剑。','bad');else if(S.gold>=80){S.gold-=80;S.flags.sword=1;gainGear('精钢剑',null,true);}else say('银子不够。','bad');shop();}],["买皮甲（40两）",()=>{if(S.inv['皮甲'])say('你已有皮甲。','bad');else if(S.gold>=40){S.gold-=40;gainGear('皮甲',null,true);}else say('银子不够。','bad');shop();}],["卖艺赚钱",()=>{const g=R(5,15)+S.lv*2;S.gold+=g;S.day++;say('你当街舞剑，围观者喝彩，得了'+g+'两。');go();}],["离开集市",go]]);}
+
+/* ===== 战斗 ===== */
+function scaleEnemy(){const pool=ENEMY.filter(e=>e.lv<=S.lv+1&&e.lv!==7&&e.lv<6);return pick(pool.length?pool:ENEMY);}
+/* 敌人按主角等级成长；named=有名有姓/剧情对手，boss=萧寒 */
+function buildEnemy(e){const named=!!(e.named||e.boss||e.lv>=6||(e.hp||0)>=100);let L=Math.max(e.lv||1,S.lv+(named?1:(chance(.3)?-1:0)));if(e.boss)L=Math.max(L,S.lv+2,10);
+ const hf=Math.min(1.5,Math.max(.8,(e.hp||50)/50*.3+.7)),af=Math.min(1.3,Math.max(.85,(e.atk||10)/10*.25+.75));let hp=Math.round((16+15*L+1.7*L*L)*hf);let atk=Math.round((2+3.3*L)*af);let def=Math.floor(L*1.1);
+ if(named){hp=Math.round(hp*1.3);atk=Math.round(atk*1.05);def+=1;}
+ if(e.boss){hp=Math.round(310+S.lv*28);atk=Math.round(12+S.lv*1.8);def=Math.round(7+S.lv*.5);}
+ if(e.wounded)hp=Math.round(hp*.6);
+ const fel=validEl(e.el)||NAMED_EL[e.n]||(named?hashEl(e.n):pick(EL5));
+ return {n:e.n,el:fel,hp,mhp:hp,atk,def,lv:L,boss:!!e.boss,named,dodge:e.boss?.12:named?.1:.06,phase:1,pot:0,guard:false,bleed:0};}
+function startFight(e,win){e=e||scaleEnemy();S.fight=buildEnemy(e);S._win=win||null;const f=S.fight;
+ say('⚔ 遭遇【'+f.n+'】'+(f.boss?'（宗师）':f.named?'（劲敌）':'')+' · '+f.el+'属 · 气血 '+f.hp+' · 攻 '+f.atk+' · 防 '+f.def,'set');fightMenu();}
+function fightMenu(){const f=S.fight;const sk=mySkills();const c=sk.length>3?[sk[0],sk[sk.length-2],sk[sk.length-1]]:sk.slice();
+ const ch=c.map(s=>{const e=skillEl(s),m=elMul(e,f.el);return [s.n+'·'+e+(m>1?'↑':m<1?'↓':'')+(s.mp?'（内力'+s.mp+'）':''),()=>attack(s),1];});
+ ch.push(["守势 / 用药 / 逃跑",()=>show([["凝神守御（减伤、回内力）",defend,1],["服金疮药（"+(S.inv['金疮药']||0)+"）",()=>useItem("金疮药",true),1],["服灵芝（"+(S.inv['灵芝']||0)+"）",()=>useItem("灵芝",true),1],["逃跑",flee,1],["返回",fightMenu,1]]),1]);
+ $('status').textContent='【'+f.n+'·'+f.el+'】气血 '+Math.max(0,f.hp)+'/'+f.mhp+(f.guard?' · 架势防守':'')+(S.fight.bleed?' · 你中毒/流血':'')+' · 用药 '+f.pot+'/2';show(ch);}
+function attack(s){const f=S.fight;if(S.mp<s.mp){say('内力不足！','bad');return fightMenu();}S.mp-=s.mp;S._guard=false;
+ if(chance(f.dodge)){push({k:'r',w:false,t:s.n,d:f.n+'身形一晃，避开了你这一招'});return enemyTurn();}
+ const ae=skillEl(s),em=elMul(ae,f.el);let d=Math.round(((R(5,9)+atkStat())*s.m-f.def)*em);let m=em>1?'以'+ae+'克'+f.el+'，伤害大增！':em<1?ae+'被'+f.el+'所克，劲力受阻。':'';
+ if(SHENG5[ae]===S.el){S.mp=Math.min(S.mmp,S.mp+3);m+=ae+'生'+S.el+'，内力回流 +3。';}if(chance(S.el==='火'?.18:.1)){d=Math.round(d*1.7);m='会心一击！';}
+ if(f.guard){d=Math.round(d*.5);m+='对方架势严密，劲力被卸去一半。';f.guard=false;}
+ if(f.boss&&s.n==="太虚剑意"&&S.flags.weak){d=Math.round(d*1.5);m+='正中破绽！';}
+ d=Math.max(1,d);f.hp-=d;let t='你使出'+s.n+'，造成 '+d+' 点伤害';
+ if(S.flags.allyOn&&f.hp>0&&chance(.6)){const a=Math.max(1,R(3,6)+S.lv-Math.floor(f.def/2));f.hp-=a;t+='；柳青补上一剑，再伤 '+a;}
+ push({k:'r',w:true,t:s.n,m,d:t});
+ if(f.hp<=0)return winFight();phaseCheck();enemyTurn();}
+function phaseCheck(){const f=S.fight;if(!f||!(f.named||f.boss))return;
+ if(f.phase===1&&f.hp<f.mhp*.5){f.phase=2;f.atk=Math.round(f.atk*1.25);f.dodge+=.04;push({k:'t',t:f.boss?'萧寒长啸一声，血月魔功催至第九重，掌风骤然凌厉！':f.n+'被激起凶性，出手更狠了！'});}
+ if(f.boss&&f.phase===2&&f.hp<f.mhp*.2){f.phase=3;const h=Math.round(f.mhp*.12);f.hp+=h;push({k:'t',t:'萧寒咬破舌尖，以血祭功，气血回复 '+h+'——这是最后的疯狂！'});}}
+function defend(){S._guard=true;S.mp=Math.min(S.mmp,S.mp+8);push({k:'r',w:true,t:'凝神守御',d:'你沉肩坠肘，护住周身要害（本回合受伤减半，内力 +8）'});enemyTurn();}
+function enemyTurn(){const f=S.fight;let note='';
+ if(f.bleed>0){const b=Math.max(2,Math.round(S.mhp*.04));hurt(b);f.bleed--;push({k:'r',w:false,t:'毒伤发作',d:'气血 -'+b+'（剩 '+S.hp+'）'});if(S.hp<=0){S._lastFoe=(S.fight&&(S.fight.named||S.fight.boss))?'n':'c';S.fight=null;S._guard=false;return death();}}
+ const r=Math.random();let mult=1,name=f.n+'出手';
+ if(r<.1){f.guard=true;push({k:'r',w:false,t:f.n+'摆出守势',d:'下一招你的伤害减半'});S._guard=false;return fightMenu();}
+ if(r<.22){mult=1.5;name=f.n+'蓄力重击';}else if(r<.37&&!f.bleed){f.bleed=3;mult=.8;name=f.n+(f.boss?'血月掌·蚀骨':pick(['淬毒暗器','阴狠一刀']));note='，你中了毒伤（3 回合）';}
+ if(chance(.08+(S.el==='水'?.04:0))){push({k:'r',w:true,t:'闪避',d:f.n+'一招落空'});S._guard=false;return fightMenu();}
+ const raw=Math.round(R(Math.ceil(f.atk*.75),f.atk)*mult);const em=elMul(f.el,S.el),ar=armorEl(),am=ar?(KE[ar]===f.el?.85:KE[f.el]===ar?1.15:1):1;let d=Math.max(1,Math.round((raw-defStat())*em*am));
+ if(em>1)note+='（'+f.el+'克'+S.el+'，你吃了大亏）';else if(em<1)note+='（'+S.el+'克'+f.el+'，你稳稳接下）';if(am<1)note+='（'+ar+'甲克'+f.el+'，减伤）';else if(am>1)note+='（'+f.el+'克'+ar+'甲，破防）';if(S._guard)d=Math.max(1,Math.round(d*.5));S._guard=false;hurt(d);
+ push({k:'r',w:false,t:name,d:'气血 -'+d+note+'（剩 '+S.hp+'）'});
+ if(S.hp<=0){S._lastFoe=(S.fight&&(S.fight.named||S.fight.boss))?'n':'c';S.fight=null;return death();}fightMenu();}
+function winFight(){const f=S.fight;S.fight=null;$('status').textContent='点上面的选项，或写下你的行动';const g=R(5,15)*f.lv;S.gold+=g;
+ push({k:'t',t:'【'+f.n+'】倒下了 · 银两 +'+g});if(chance(.3))item(pick(["金疮药","金疮药","灵芝"]));if(chance(f.boss?0:f.named?.3:.1)){const gn=lootGear(f.lv);gainGear(gn,null,true);}gainXp(15*f.lv+10);S.rep+=f.lv;
+ S._guard=false;{const h=Math.round(S.mhp*.25);if(S.hp<S.mhp){heal(h);S.mp=Math.min(S.mmp,S.mp+Math.round(S.mmp*.3));say('战后调息片刻，气血 +'+h,'sys');}}const w=S._win;S._win=null;if(w)return w();if(f.boss)return end('hero');go();}
+function flee(){if(S.fight.boss){say('教主冷笑：「今日你走不了！」');return enemyTurn();}if(chance(S.fight.named?.3:.5)){say('你虚晃一招，抽身遁走。');S.fight=null;S._win=null;$('status').textContent='点上面的选项，或写下你的行动';go();}else{say('逃跑失败！','bad');enemyTurn();}}
+function useItem(n,inFight){if(!S.inv[n]){say('你没有'+n+'。','bad');return inFight?fightMenu():go();}if(inFight&&S.fight.pot>=2){say('这一战已服过两次药，药力再难化开。','bad');return fightMenu();}if(inFight)S.fight.pot++;item(n,-1);
+ if(n==="金疮药"){const h=Math.round(25+S.mhp*.15);heal(h);say('伤口止血，气血 +'+h,'sys');}else if(n==="灵芝"){const h=Math.round(S.mhp*.6);heal(h);S.mp=Math.min(S.mmp,S.mp+Math.round(S.mmp*.6));say('灵气入体，气血 +'+h+'，内力大振','sys');}
+ if(inFight)return enemyTurn();go();}
+
+/* ===== 结局 ===== */
+function bossIntro(){say('血月教主缓缓摘下面具——竟是你师父的师兄，当年被逐出师门的萧寒！');if(S.npcs){meet('萧寒',{title:'血月教主',sect:'血月教',age:'五十余岁',look:'面容清癯，鬓角斑白，眼神阴冷',pers:'城府极深，野心勃勃',lv:'绝顶高手',where:'血月教总坛',rel:-90,ev:'摘下面具，承认杀害师父'});if(S.npcs['血色面具人'])S.npcs['血色面具人'].status='真身即萧寒';}say('「你师父不肯交出玉佩，只好让他死。你若投我，宝库与天下共享。」');
+ const boss=(hp)=>({n:"血月教主·萧寒",hp:120,atk:24,lv:10,boss:1});
+ show([["拔剑：「血债血偿！」",()=>{S.flags.boss=1;startFight(boss(220+S.lv*10),()=>end("hero"));}],
+  ["假意投降，伺机而动",()=>{S.flags.boss=1;if(chance(.4+S.lv*.03)){say('你趁他转身，一剑刺穿其肩！');startFight({n:"负伤的萧寒",hp:50,atk:20,lv:9,boss:1,wounded:1},()=>end("hero"));}else{say('萧寒早有防备：「小聪明！」一掌拍在你胸口。');hurt(25);if(S.hp<=0)return death();startFight(boss(240),()=>end("hero"));}}],
+  ["真心投入血月教",()=>end("dark")],["暂且退走",()=>goTo('city')]]);}
+function checkEnd(){if(S.day>=60&&!S.flags.boss&&!S.flags.retireAsk){S.flags.retireAsk=1;say('转眼已过两月。你厌倦了刀光剑影……');show([["归隐山林",()=>end("retire")],["继续追查",go]]);return true;}
+ if((S.flags.dark||0)>=3&&!S.flags.darkAsk){S.flags.darkAsk=1;say('一名血月使者找到你：「教主看中你了。」');show([["加入血月教",()=>end("dark")],["拒绝",()=>{S.karma++;go();}]]);return true;}
+ return false;}
+const ENDS={
+ hero:["侠之大者","萧寒倒下，血月崩塌。你将七块玉佩沉入沧浪江，宝库永封。江湖传颂你的名字，而你只是回到青石镇，在师父坟前斟了一杯酒。"],
+ dark:["血月新主","你接过血色面具。多年后，江湖人提起你的名字便噤若寒蝉。师父的旧剑，被你折断丢进了熔炉。"],
+ retire:["江湖不再","你在山间结庐，种菜读书。偶有少年上山求艺，你只笑说：「江湖太远，不如喝茶。」"],
+ dead:["埋骨他乡","你倒在了血泊中。江湖从不缺少无名的尸骨。"]};
+function end(k){S.over=true;S.fight=null;const [t,d]=ENDS[k];note('结局：'+t);
+ push({k:'e',t,d:d+(k==='hero'&&S.flags.allyOn?' 柳青站在你身边，雨停了。':'')+'\n\n共历 '+S.day+' 日 · 等级 '+S.lv+' · 侠名 '+S.rep+' · 善恶 '+S.karma});
+ $('status').textContent='故事结束';show([]);}
+function death(){S.revives=S.revives||0;if(S._lastFoe==='c'&&!S.over){S._lastFoe='';const lost=Math.floor(S.gold/2);S.gold-=lost;S.hp=Math.max(1,Math.floor(S.mhp*.3));S.fight=null;S._win=null;$('status').textContent='点上面的选项，或写下你的行动';say('你被打得昏死过去……醒来时对手早已不见，钱袋轻了'+lost+'两。好在捡回一条命。');return show([["挣扎起身",go,1]]);}S._lastFoe='';if((S.gold>=20||S.revives<4)&&!S.over){const free=S.gold<20;S.revives++;say(free?'你眼前一黑……醒来时躺在一间草庐中，一位采药老人把你从死人堆里背了回来。（这样的好运不会一直有）':'你眼前一黑……醒来时躺在一间草庐中，一位郎中救了你，收走了你大半银两。');if(!free)S.gold=Math.floor(S.gold/3);S.hp=Math.floor(S.mhp/2);S.fight=null;S._win=null;S.loc="town";$('status').textContent='点上面的选项，或写下你的行动';return show([["继续江湖路",go,1]]);}
+ end("dead");}
+
+/* ===== 自由行动 ===== */
+const KW=[
+ [/打坐|调息|练功|修炼|冥想/,()=>{S.mp=S.mmp;heal(10);say('你静心修炼，内力充盈。');gainXp(5+S.lv);}],
+ [/偷听|窃听|潜伏|躲/,()=>{if(chance(.5)){say('你屏息偷听，听到了一段要紧的对话。');addClue('偷听来的消息');}else{say('被发现了！');return 'f';}}],
+ [/问|打听|聊|搭话/,()=>{talkNpc(pick(NPC));return 'x';}],
+ [/喝酒|酒/,()=>{if(S.gold>=3){S.gold-=3;heal(10);say('一壶烧刀子下肚，豪气顿生。');if(chance(.3))addClue('醉汉说漏了嘴');}else say('你没钱买酒。');}],
+ [/偷|抢|劫/,()=>{S.karma-=2;if(chance(.5)){const g=R(10,40);S.gold+=g;say('你得手了，'+g+'两。');}else{say('被人当场抓住！');return 'f';}}],
+ [/打|杀|攻击|挑战|比武/,()=>'f'],
+ [/药|治疗|疗伤/,()=>{useItem(S.inv["金疮药"]?"金疮药":"灵芝",false);return 'x';}],
+ [/睡|休息/,()=>{heal(25+(S.el==='木'?10:0));S.day++;say('你找了个僻静处睡了一觉。');}],
+ [/离开|走|去|前往/,()=>{travel();return 'x';}],
+ [/帮|救|助/,()=>{S.karma++;S.rep+=3;say('你出手相助一位遇难的路人，赢得了好名声。');gainXp(10);}],
+ [/采|挖|找|搜/,()=>{if(chance(.4))item(pick(["灵芝","金疮药"]));else{const g=R(1,10);S.gold+=g;say('翻找半天，只寻到'+g+'两碎银。');}}],
+ [/唱|舞|卖艺/,()=>{const g=R(5,15);S.gold+=g;say('你即兴表演，围观者扔来'+g+'两。');}]
+];
+const ta=$('act');
+function autosize(){ta.style.height='auto';ta.style.height=Math.min(120,ta.scrollHeight)+'px';}
+function freeAct(){if(AI.busy){AI.ctl&&AI.ctl.abort();return;}const t=ta.value.trim();if(!t||!S||S.over)return;ta.value='';autosize();closeAll();say('▸ '+t,'you');
+ if(S.fight){say('生死相搏之际，只能出招！','bad');return fightMenu();}
+ S.steps++;if(aiOn())return aiTurn(t,()=>offlineFree(t));offlineFree(t);}
+function offlineFree(t){S._skip=1;
+ for(const [re,fn] of KW)if(re.test(t)){const r=fn();if(r==='f')return startFight();if(r==='x')return;return go();}
+ say(pick(['你'+t+'，但似乎什么也没发生。远处传来一声鸦啼。','你试着'+t+'，路人投来奇怪的目光。','你'+t+'了一阵，心中若有所悟。']));if(chance(.3))gainXp(3);go();}
+$('go').onclick=freeAct;ta.addEventListener('input',autosize);
+ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();freeAct();}});
+
+/* ===== Grok AI 续写 ===== */
+const AIONK='jianying-ai-on',PROVK='jianying-provider';
+const PROV={
+ deepseek:{n:'DeepSeek',url:'https://api.deepseek.com/chat/completions',key:'jianying-deepseek-key',model:'jianying-deepseek-model',ph:'sk-…',console:'platform.deepseek.com',
+  models:[['deepseek-flash','DeepSeek Flash（快、便宜，默认）'],['deepseek-v4-pro','DeepSeek V4 Pro（更强）']],extra:{thinking:{type:'disabled'}}},
+ grok:{n:'Grok',url:'https://api.x.ai/v1/chat/completions',key:'jianying-xai-key',model:'jianying-xai-model',ph:'xai-…',console:'console.x.ai',
+  models:[['grok-4.7','Grok 4.7（最强，默认）'],['grok-4.20-0309-non-reasoning','Grok 4.20 非推理（最快）'],['grok-4.3','Grok 4.3（省钱）']],extra:{}}};
+const AI={busy:false,ctl:null};
+const lsg=(k,d)=>{try{return LS.getItem(k)||d}catch(_){return d}};
+const BUILTIN_XAI='';/* 用户同意内置的 xAI Key；用户自己填的 Key 优先 */
+const userKey=p=>lsg(PROV[p].key,'');
+const getProv=()=>{const p=lsg(PROVK,userKey('grok')&&!userKey('deepseek')?'grok':'deepseek');return PROV[p]?p:'grok';};
+const P=()=>PROV[getProv()];
+const getKey=()=>userKey(getProv())||(getProv()==='grok'?BUILTIN_XAI:'');
+const usingBuiltin=()=>!!BUILTIN_XAI&&getProv()==='grok'&&!userKey('grok');
+const maskKey=k=>k?k.slice(0,4)+'••••'+k.slice(-4):'';
+const getModel=()=>lsg(P().model,P().models[0][0]);
+let MODELS=P().models;
+function setProv(p){try{LS.setItem(PROVK,p)}catch(_){}syncKeyUI();}
+function fillProv(sel){sel.textContent='';Object.keys(PROV).forEach(k=>{const o=el('option',null,PROV[k].n+(lsg(PROV[k].key,'')?' ✓':''));o.value=k;if(k===getProv())o.selected=true;sel.append(o);});}
+const aiOn=()=>!!getKey()&&(()=>{try{return LS.getItem(AIONK)!=='0'}catch(_){return true}})();
+function setKey(k){k=String(k||'').trim();try{k?LS.setItem(P().key,k):LS.removeItem(P().key);}catch(_){}syncKeyUI();}
+function setModel(m){try{LS.setItem(P().model,m)}catch(_){}syncKeyUI();}
+function fillModels(sel){MODELS=P().models;sel.textContent='';const cur=getModel();const list=MODELS.slice();if(!list.some(m=>m[0]===cur))list.push([cur,cur]);list.forEach(([v,t])=>{const o=el('option',null,t);o.value=v;if(v===cur)o.selected=true;sel.append(o);});}
+function syncKeyUI(){const k=getKey();const ki=$('keyIn');ki.placeholder='填入 '+P().n+' API Key（'+P().ph+'），留空则离线游玩';if(document.activeElement!==ki)ki.value=userKey(getProv());fillProv($('provIn'));fillModels($('modelIn'));
+ $('keyNote').textContent=usingBuiltin()?('已内置 key（'+maskKey(k)+'），剧情将由 '+getModel()+' 续写。填入你自己的 Key 可覆盖。'):k?('已保存 '+P().n+' Key（…'+k.slice(-4)+'），剧情将由 '+getModel()+' 续写。'+(getProv()==='grok'?'清空输入框则改用内置 key。':'清空输入框即可改回离线。')):'未填 '+P().n+' Key：使用内置离线故事引擎。Key 可在 '+P().console+' 获取。';if(!LS_OK)$('keyNote').textContent+='（当前环境无法保存 Key，只在本次打开期间有效，下次需重新填写。）';$('keyNote').style.color=k?'':'var(--gold)';if(!k)$('keyNote').textContent='👉 想让 AI 实时续写剧情？选择 DeepSeek（国内可直连）或 Grok，粘贴你的 API Key 即可，只需填一次，会保存在本机浏览器。不填也能离线游玩。（'+P().n+' Key 可在 '+P().console+' 获取）';if(S)ui();}
+$('keyIn').addEventListener('change',e=>setKey(e.target.value));$('provIn').addEventListener('change',e=>setProv(e.target.value));$('modelIn').addEventListener('change',e=>setModel(e.target.value));
+function renderAI(){const p=$('aPanel');p.textContent='';
+ p.append(kv([['服务商',P().n],['Key',usingBuiltin()?'已内置 key '+maskKey(getKey()):(getKey()?'自填 '+maskKey(getKey()):'无')],['状态',getKey()?(aiOn()?'AI 续写中':'已暂停（离线）'):'未设置 Key'],['模型',getModel()]]));
+ const f=el('div','grp');f.append(el('h4',null,'AI 服务商与 API Key'));const ps=el('select');fillProv(ps);ps.onchange=()=>{setProv(ps.value);renderAI();};const inp=el('input');inp.type='password';inp.autocomplete='off';inp.placeholder=usingBuiltin()?'已内置 key，可填入自己的覆盖':P().ph;inp.value=userKey(getProv());
+ inp.style.cssText='background:var(--bg);border:1px solid var(--line);padding:8px 10px;color:var(--ink);font-size:14px;width:100%';ps.style.cssText=inp.style.cssText;f.append(ps,inp);
+ const sel=el('select');sel.style.cssText=inp.style.cssText;fillModels(sel);f.append(sel);p.append(f);
+ const bx=el('div','rbtns');const sv=el('button','go2','保存');sv.onclick=()=>{setKey(inp.value);setModel(sel.value);renderAI();};
+ const tg=el('button','go2 team',aiOn()?'暂停 AI，改用离线':'启用 AI 续写');tg.onclick=()=>{try{LS.setItem(AIONK,aiOn()?'0':'1')}catch(_){}ui();};
+ const cl=el('button','go2 leave','清除 Key');cl.onclick=()=>{setKey('');renderAI();};bx.append(sv,tg,cl);p.append(bx);
+ renderImgCtl(p);
+ p.append(el('div','rhint','每个服务商的 Key 分开保存在本机浏览器（LS），请求直接发往 '+P().url.split('/')[2]+'。出错时自动退回离线剧情。'));closer(p);}
+
+function sysPrompt(){return `你是一位武侠说书人，正在主持一场名为《剑影江湖》的中文文字冒险游戏。主角是玩家本人。
+【世界观】北宋末年，血月教崛起。主角是青石镇铁匠之子，师父被戴血色面具的人杀害，临终留下半块玉佩，遗言「去……云隐寺……」。幕后真相（不要提前剧透）：血月教主是师父的师兄萧寒，为集齐七块玉佩开启前朝宝库而杀人。已知地点：青石镇、黑松林、云隐寺、沧浪江、汴京、血月教总坛（需线索才能找到）。
+【写法】
+1. 用第二人称「你」，文风像金庸古龙：短句、白描、有画面感、有江湖气，对白用「」。每回合正文 120~260 字，分 1~3 段。
+2. 顺着玩家的行动写结果，不要替玩家做重大决定；玩家行动荒唐也要合理圆回来。行动有风险时要有代价，不能事事如意。
+3. 正文结尾留一个悬念或抉择点。不要在正文里写数值、不要提"游戏""JSON"。
+4. 根据主角等级安排对手强弱；主线线索要慢慢给，集齐 5 条线索且等级足够后，才让主角找到总坛、面对萧寒。
+5. 需要真正交手时，用 fight 字段发起战斗（游戏会用回合制战斗系统结算），正文只写到双方拔刀对峙为止，不要写出胜负。
+6. 只有主角真正走到故事终点（手刃萧寒、投靠血月教、归隐等）才给 ending。
+【输出格式】先写正文；正文后单独一行写【状态】，下一行写一行 JSON（不要代码块），字段如下，没有变化的字段可省略：
+{"choices":["3~4 个接下来的行动选项，每个不超过 14 字"],"hp":气血增减整数,"qi":内力增减整数,"xp":修为增加整数(0~80),"silver":银两增减整数,"gain":["获得的物品"],"lose":["失去的物品"],"skill":"新学会的武功名或空","skill_element":"该武功的五行（金/木/水/火/土）","place":"主角现在所在地名","clue":"新得到的主线线索一句话或空","note":"值得记入日志的事一句话或空","fight":{"enemy":"对手名","hp":对手气血,"atk":对手攻击力,"element":"对手五行（金/木/水/火/土）","boss":false} 或 null,"ending":{"title":"四字结局名","text":"结局尾声 60~120 字"} 或 null,"npcs":[{"name":"人物名","title":"身份","sect":"门派","age":"年纪","look":"相貌（中文）","personality":"性情","level":"武功高低","rel":本回合好感变化整数，平常 -8~8，只有救命、背叛、表白、结义这类大事才可到 ±15 并同时写 "major":true,"special":"特殊关系如师徒/同伴/知己(需好感≥50)/恋人(≥65)/结义(≥70)/生死之交(≥85)，且必须有相应剧情事件，否则省略","status":"在世/已故/受伤等","where":"所在","event":"本回合与主角之间发生的事一句话"}] 本回合登场或关系有变的人物，最多 4 个，已登记过的人物只写变化的字段,"gear":[{"name":"装备名","type":"weapon/armor/accessory","atk":攻击加成(一般1~5,最多10),"def":防御加成(一般1~5,最多10),"element":"装备五行（金/木/水/火/土）"}] 本回合获得的兵器护甲饰品（不要同时写进 gain）,"img":"用英文写的本回合画面描述，40~70 词，只写场景、人物动作、表情、光线、构图，不写画风，主角用 the hero 指代","image_type":"本回合正文重点在描写某个人物（外貌、神态、登场亮相、对话特写）时填 character，否则（风景、打斗全景、环境）填 scene","character":"image_type 为 character 时，用英文写这个人物的外貌：性别、大致年龄（必须是成年人）、发型、五官气质、服饰颜色与款式，20~40 词；是主角就写 the hero"}
+参考数值：游戏会按主角等级自动调整对手强度，你只需给出相对强弱（小喽啰气血 30~60、攻击 6~10；高手 100~150、攻击 14~20；萧寒标 boss:true）。一回合 hp 增减一般在 -25~+30 之间。
+【五行】战斗按五行相克结算：金克木、木克土、土克水、水克火、火克金；每个对手、武功、兵器、护甲都有五行，请在 fight/skill/gear 里写明，并在正文里偶尔点出相克之理（如以水克火）。
+【平衡】人物关系要慢慢培养：寒暄、送礼只加一两点，同样的举动反复做不再加；信任要靠共同经历的大事。战斗要有挑战性：对手会反击、会用毒、会防守，主角受伤是常态，不要让主角轻松碾压；兵器护甲要少给，几回合才偶尔给一件，加成多为 1~5，神兵利器极为罕见。`;}
+function aiState(){const f=S.flags;return {姓名:S.name,五行根骨:S.el,等级:S.lv,修为:S.xp+'/'+need(),气血:S.hp+'/'+S.mhp,内力:S.mp+'/'+S.mmp,银两:S.gold,侠名:S.rep,善恶:S.karma,地点:S.place||LOC[S.loc].n,第几日:S.day,
+ 行囊:Object.entries(S.inv).map(([k,v])=>k+'×'+v),武功:mySkills().map(s=>s.n),装备:Object.keys(SLOTN).map(k=>SLOTN[k]+':'+(S.eq[k]?S.eq[k]+'('+(gearOf(S.eq[k]).el||'无属')+')':'无')),武功五行:mySkills().map(s=>s.n+':'+skillEl(s)),攻击:atkStat(),防御:defStat(),人物关系:npcList().map(n=>n.n+'('+(n.title||'')+'·'+(n.sp?n.sp+'·':'')+relLabel(n.rel)+n.rel+'·'+(n.status||'在世')+')'),同伴:f.allyOn?['柳青（师父之女）']:[],
+ 主线线索数:Math.min(S.clues,5)+'/5',主线进度:{拜见云隐寺住持:!!f.monk,查探黑松林营地:!!f.camp,寻访沧浪江船夫:!!f.boat,夜探锦衣卫:!!f.palace,得到总坛地图:!!f.cultMap,已与教主决战:!!f.boss},已知教主弱点:!!f.weak,日志:S.notes.slice(0,12)};}
+function aiMessages(text){const recent=S.log.slice(-14).filter(e=>e.k==='n'||e.k==='p').map(e=>(e.k==='p'?'【玩家】':'')+e.t).join('\n').slice(-1800);
+ const msgs=[{role:'system',content:sysPrompt()},{role:'user',content:'【近况】\n'+recent+'\n\n【当前状态】\n'+JSON.stringify(aiState())}];
+ (S.turns||[]).slice(-8).forEach(m=>msgs.push(m));
+ msgs.push({role:'user',content:S.name+'的行动：'+text+'\n\n（请按格式续写：正文，然后【状态】和一行 JSON。）'});return msgs;}
+function splitOut(t){const i=t.indexOf('【状态】');if(i>=0)return{narr:t.slice(0,i).trim(),tail:t.slice(i+4)};
+ const a=t.search(/\{\s*"choices"/);if(a>=0)return{narr:t.slice(0,a).trim(),tail:t.slice(a)};return{narr:t.trim(),tail:''};}
+function parseTail(tail){tail=String(tail||'').replace(/```(json)?/g,'');const a=tail.indexOf('{'),b=tail.lastIndexOf('}');if(a<0||b<=a)return null;try{return JSON.parse(tail.slice(a,b+1))}catch(_){return null}}
+const int=(v,lo,hi)=>{v=Math.round(Number(v));return isFinite(v)?Math.max(lo,Math.min(hi,v)):0;};
+const str=(v,n)=>typeof v==='string'?v.replace(/[\u0000-\u001f]/g,'').trim().slice(0,n):'';
+const strs=(v,k,n)=>(Array.isArray(v)?v:[]).map(x=>str(x,n)).filter(Boolean).slice(0,k);
+function ERRmsg(e){if(e&&e.name==='AbortError')return '已停下。';const s=e&&e.status,N=P().n,ds=getProv()==='deepseek';
+ if(s===401||s===403||(s===400&&!ds))return N+' 调用失败：API Key 无效或没有权限（'+s+'）。请在「AI」面板检查 Key。';
+ if(s===402)return N+' 账户余额不足（402），请到 '+P().console+' 充值。';
+ if(s===400)return N+' 请求格式有误（400），可以换个模型再试。';
+ if(s===422)return N+' 请求参数有误（422），可以换个模型再试。';
+ if(s===404)return N+' 调用失败：找不到模型「'+getModel()+'」，请换一个模型。';if(s===429)return N+' 调用太频繁或额度用完（429），稍后再试。';
+ if(s===503)return N+' 服务器繁忙（503），稍后再试。';if(s>=500)return N+' 服务暂时出错（'+s+'），稍后再试。';if(e&&e.code==='empty')return N+' 没有返回内容。';
+ return '连不上 '+N+'（网络错误）。请检查网络'+(ds?'。':'；在中国大陆访问 api.x.ai 通常需要代理。');}
+async function callGrok(msgs,onText,signal){
+ const res=await fetch(P().url,{method:'POST',signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},
+  body:JSON.stringify(Object.assign({model:getModel(),messages:msgs,stream:true,temperature:0.9,max_tokens:1500},P().extra))});
+ if(!res.ok){const e=new Error('http');e.status=res.status;throw e;}
+ let out='';
+ if(res.body&&res.body.getReader){const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
+  for(;;){const {done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;
+   while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i).trim();buf=buf.slice(i+1);if(!line.startsWith('data:'))continue;const d=line.slice(5).trim();if(d==='[DONE]')continue;
+    try{const j=JSON.parse(d);const c=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content;if(c){out+=c;onText(out);}}catch(_){}}}}
+ else{const t=await res.text();t.split('\n').forEach(line=>{line=line.trim();if(!line.startsWith('data:'))return;try{const j=JSON.parse(line.slice(5));const c=j.choices[0].delta.content;if(c)out+=c;}catch(_){}});onText(out);}
+ if(!out.trim()){const e=new Error('empty');e.code='empty';throw e;}return out;}
+function setBusy(b){AI.busy=b;const g=$('go');g.textContent=b?'停':'行';g.classList.toggle('stop',b);
+ $('chips').querySelectorAll('button').forEach(x=>x.disabled=b);$('status').textContent=b?'说书人正在构思……':'点上面的选项，或写下你的行动';}
+async function aiTurn(text,fallback){
+ const nEl=el('div','n wait','……');$('log').append(nEl);scroll();setBusy(true);AI.ctl=new AbortController();
+ try{
+  const out=await callGrok(aiMessages(text),t=>{nEl.classList.remove('wait');nEl.textContent=splitOut(t).narr||'……';scroll();},AI.ctl.signal);
+  const sp=splitOut(out);const j=parseTail(sp.tail);const narr=str(sp.narr||out,1500);
+  if(!narr){const e=new Error('bad');e.code='empty';throw e;}
+  nEl.remove();setBusy(false);
+  S.turns=(S.turns||[]).concat([{role:'user',content:S.name+'的行动：'+text},{role:'assistant',content:narr}]).slice(-16);
+  const ne={k:'n',t:narr,img:str(j&&j.img,500)||''};if(!ne.img)delete ne.img;else if(j&&j.image_type==='character'){ne.it='c';const cd=str(j.character,300);if(cd)ne.cd=cd;}push(ne);if(ne.img&&imgMode()==='auto'&&imgKey())paint(ne);applyAI(j||{});
+ }catch(e){nEl.remove();setBusy(false);const aborted=e&&e.name==='AbortError';
+  push({k:'s',t:ERRmsg(e)+(aborted?'':' 本回合改用离线剧情。')});
+  if(aborted){show(S._c||[]);return;}
+  fallback();}
+}
+function applyAI(j){
+ const hp=int(j.hp,-80,S.mhp),qi=int(j.qi,-S.mmp,S.mmp),xp=int(j.xp,0,120),ag=int(j.silver,-500,500);
+ if(hp){S.hp=Math.max(0,Math.min(S.mhp,S.hp+hp));say((hp>0?'气血 +':'气血 ')+hp,hp>0?'sys':'bad');}
+ if(qi){S.mp=Math.max(0,Math.min(S.mmp,S.mp+qi));say((qi>0?'内力 +':'内力 ')+qi,qi>0?'sys':'bad');}
+ if(ag){S.gold=Math.max(0,S.gold+ag);say((ag>0?'银两 +':'银两 ')+ag,ag>0?'sys':'bad');}
+ strs(j.gain,5,12).forEach(n=>item(n));
+ (Array.isArray(j.gear)?j.gear:[]).slice(0,1).forEach(g=>{if(!g||typeof g!=='object')return;const n=str(g.name,12);if(!n)return;const t={weapon:'weapon',armor:'armor',accessory:'acc',acc:'acc'}[g.type]||'weapon';
+  gainGear(n,{t,atk:int(g.atk,0,10),def:int(g.def,0,10),el:validEl(g.element)||hashEl(n)},true);});
+ (Array.isArray(j.npcs)?j.npcs:[]).slice(0,4).forEach(x=>{if(!x||typeof x!=='object')return;const n=str(x.name,10);if(!n||n===S.name)return;
+  const ev=str(x.event,40),major=x.major===true;let sp=str(x.special,6);const ex=S.npcs&&S.npcs[n];
+  if(sp&&ex&&!spOk(ex,sp,ev)&&ex.sp!==sp){sp='';}if(sp&&!ex&&SP_NEED[sp])sp='';
+  meet(n,{title:str(x.title,20),sect:str(x.sect,12),age:str(x.age,10),look:str(x.look,80),pers:str(x.personality,40),lv:str(x.level,10),sp,status:str(x.status,16),where:str(x.where,16)});
+  const d=major?int(x.rel,-15,15):int(x.rel,-8,8);if(d)rel(n,d,ev,{raw:1});else if(ev){const o=S.npcs[n];o.ev.push('第'+S.day+'日 '+ev);if(o.ev.length>12)o.ev=o.ev.slice(-12);}});
+ strs(j.lose,5,12).forEach(n=>{if(S.inv[n]){item(n,-1);say('失去【'+n+'】','bad');}});
+ const sk=str(j.skill,10);if(sk&&!mySkills().some(s=>s.n===sk)){S.xsk=(S.xsk||[]).concat(sk).slice(-6);S.xskEl=S.xskEl||{};S.xskEl[sk]=validEl(j.skill_element)||hashEl(sk);say('习得武功【'+sk+'】','sys');note('习得'+sk);}
+ const pl=str(j.place,12);if(pl){const k=Object.keys(LOC).find(k=>pl.includes(LOC[k].n)||LOC[k].n.includes(pl));
+  if(k&&(k!=='cult'||S.flags.cultMap||S.clues>=5)){S.loc=k;S.place='';if(!S.seen.includes(k))S.seen.push(k);if(k==='cult')S.flags.cultMap=1;}else if(!k)S.place=pl;}
+ const cl=str(j.clue,40);if(cl&&S.clues<12)addClue(cl);
+ const nt=str(j.note,40);if(nt)note(nt);
+ if(xp)gainXp(xp);
+ S.day+=chance(.35)?1:0;
+ const choices=strs(j.choices,4,16);const fallbackChoices=['四处看看','打坐调息','找人打听消息','前往他处'];
+ const opts=(choices.length>=2?choices:fallbackChoices).map(t=>[t,()=>offlineFree(t)]);
+ if(j.ending&&typeof j.ending==='object'&&(str(j.ending.title,8)||str(j.ending.text,300))){S.over=true;S.fight=null;const t=str(j.ending.title,8)||'江湖落幕';note('结局：'+t);
+  push({k:'e',t,d:str(j.ending.text,300)+'\n\n共历 '+S.day+' 日 · 等级 '+S.lv+' · 侠名 '+S.rep+' · 善恶 '+S.karma});$('status').textContent='故事结束';return show([]);}
+ if(S.hp<=0)return death();
+ if(j.fight&&typeof j.fight==='object'&&str(j.fight.enemy,12)){const F=j.fight;const boss=!!F.boss||/萧寒|教主/.test(F.enemy);
+  const e={n:str(F.enemy,12),hp:int(F.hp||40,15,boss?320:200),atk:int(F.atk||8,3,boss?28:22),lv:Math.max(1,Math.min(10,Math.round(int(F.atk||8,3,28)/2.5))),boss,el:validEl(F.element)};if(boss)S.flags.boss=1;
+  return startFight(e,()=>{if(aiOn())aiTurn('（战斗结束：我击败了'+e.n+'，气血还剩 '+S.hp+'）'+(boss?'——萧寒已败，请写出结局并给 ending。':'请接着写战后的情形。'),()=>{if(boss)end('hero');else go();});else if(boss)end('hero');else go();});}
+ show(opts);}
+
+
+/* ===== 场景配图（xAI Imagine） ===== */
+const IMGMODEK='jianying-img-mode',IMGMODELK='jianying-img-model';
+const CHAR_MODELK='jianying-img-model-char';
+const charModel=()=>lsg(CHAR_MODELK,'grok-imagine-image-quality');
+const IMG_MODELS=[['grok-imagine-image','Imagine 标准（约 $0.02/张）'],['grok-imagine-image-2.0','Imagine 2.0（约 $0.04/张）'],['grok-imagine-image-quality','Imagine 高质量（约 $0.05/张）']];
+const imgMode=()=>{const m=lsg(IMGMODEK,'manual');return ['auto','manual','off'].includes(m)?m:'manual';};
+const imgModel=()=>lsg(IMGMODELK,IMG_MODELS[0][0]);
+const imgKey=()=>lsg(PROV.grok.key,'')||BUILTIN_XAI;
+function heroLook(){const c={金:'pale silver-grey',木:'deep green',水:'indigo blue',火:'dark crimson',土:'earth-brown'}[S.el]||'grey';
+ return 'the hero is a lean young Chinese swordsman in his early twenties, long black hair tied up with a cloth band, wearing a plain '+c+' hemp robe, carrying an old iron sword on his back'+(S.flags&&S.flags.allyOn?'; his companion Liu Qing is a young woman swordswoman in a pale green robe':'');}
+function heroReal(){const c={金:'pale silver-grey',木:'deep green',水:'indigo blue',火:'dark crimson',土:'earth-brown'}[S.el]||'grey';
+ return 'the hero is a handsome adult Chinese man about 24 years old, sharp jawline, clear determined eyes, long black hair tied in a topknot with a cloth band, wearing a fitted '+c+' Song-dynasty hemp robe with a leather belt and an old iron sword';}
+const LIU='Liu Qing is a beautiful adult Chinese woman about 22 years old, graceful oval face, bright almond eyes, long black hair half-tied with a jade hairpin, wearing an elegant layered pale green Song-dynasty hanfu robe with a sword at her waist';
+function charPrompt(e){let who=e.cd||'';if(/the hero/i.test(who)||!who)who=heroReal()+(who&&!/^the hero$/i.test(who.trim())?'; '+who:'');
+ if(/liu qing|柳青/i.test(e.img+' '+(e.cd||'')))who+='; '+LIU;
+ return 'Photorealistic cinematic portrait still from a high-budget wuxia period film, 85mm lens, shallow depth of field, soft flattering golden-hour key light with gentle rim light, highly detailed face and natural skin texture, attractive and beautiful features, intricate authentic Song-dynasty period costume, rich film color grading, elegant composition. All subjects are adults, tasteful, fully clothed. No text, no watermark. Subject: '+who+'. Scene: '+e.img+'.';}
+function imgPrompt(scene){return 'Traditional Chinese ink wash painting (shuimo), wuxia martial arts story illustration, loose expressive brushwork, muted ink tones with a few touches of cinnabar red, rice paper texture, misty negative space, cinematic composition, no text, no watermark. Scene: '+scene+'. Character: '+heroLook()+'.';}
+function renderImgCtl(p){const g=el('div','grp');g.append(el('h4',null,'场景配图（xAI Imagine）'));
+ const m=el('div','rfil');[['auto','每段自动配图'],['manual','手动（点「配图」）'],['off','关闭']].forEach(([k,t])=>{const b=el('button',null,t);b.setAttribute('aria-pressed',String(imgMode()===k));b.onclick=()=>{try{LS.setItem(IMGMODEK,k)}catch(_){}redraw();renderAI();};m.append(b);});g.append(m);
+ const sel=el('select');sel.style.cssText='background:var(--bg);border:1px solid var(--line);padding:8px 10px;color:var(--ink);font-size:14px;width:100%';
+ g.append(el('div','rhint','风景/打斗（水墨画风）用：'));IMG_MODELS.forEach(([v,t])=>{const o=el('option',null,t);o.value=v;if(v===imgModel())o.selected=true;sel.append(o);});sel.onchange=()=>{try{LS.setItem(IMGMODELK,sel.value)}catch(_){}};g.append(sel);
+ const cs=el('select');cs.style.cssText=sel.style.cssText;IMG_MODELS.forEach(([v,t])=>{const o=el('option',null,t);o.value=v;if(v===charModel())o.selected=true;cs.append(o);});cs.onchange=()=>{try{LS.setItem(CHAR_MODELK,cs.value)}catch(_){}};
+ g.append(el('div','rhint','人物特写（写实电影风）用：'),cs);
+ g.append(el('div','rhint',imgKey()?'使用已保存的 Grok（xAI）Key 作画，故事用 DeepSeek 时也可以。':'需要先在上面选择 Grok 并保存 xAI Key 才能配图（保存后可再切回 DeepSeek 写故事）。'));p.append(g);}
+function picBlock(e){const box=el('div','pic');box.dataset.pic='1';
+ if(e.pic){const f=el('figure');const im=el('img');im.alt='场景插画';im.loading='lazy';im.src=e.pic;
+  im.onerror=()=>{f.remove();e.pic='';if(e.img&&imgMode()!=='off'){box.textContent='';picBlock2(e,box,'插画已过期，重新配图');}};
+  im.onclick=()=>zoom(e.pic);f.append(im);box.append(f);}
+ else if(e.img&&imgMode()!=='off')picBlock2(e,box,'配图');
+ if(box.childNodes.length)$('log').append(box);e._box=box;}
+function picBlock2(e,box,label){const row=el('div','paintRow');const b=el('button','paint',label);b.onclick=()=>paint(e);row.append(b);box.append(row);}
+async function paint(e){if(e._busy)return;const key=imgKey();let box=e._box;
+ if(!box||!box.isConnected){box=el('div','pic');$('log').append(box);e._box=box;}
+ if(!key){box.textContent='';box.append(el('div','sys','没有 xAI Key，无法配图。请在「AI」面板选择 Grok 保存 Key。'));return;}
+ e._busy=true;box.textContent='';const ph=el('figure');ph.append(el('div','n wait','墨色晕开，画师正在落笔……'));box.append(ph);scroll();
+ try{const res=await fetch('https://api.x.ai/v1/images/generations',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+   body:JSON.stringify({model:e.it==='c'?charModel():imgModel(),prompt:(e.it==='c'?charPrompt(e):imgPrompt(e.img)).slice(0,1800),n:1,aspect_ratio:'16:9',response_format:'url'})});
+  if(!res.ok){const er=new Error('http');er.status=res.status;throw er;}
+  const j=await res.json();const d=j&&j.data&&j.data[0];const url=d&&(d.url||(d.b64_json?'data:'+(d.mime_type||'image/jpeg')+';base64,'+d.b64_json:''));
+  if(!url){const er=new Error('empty');er.code='empty';throw er;}
+  e.pic=url.length<2000?url:'';e._busy=false;box.textContent='';
+  const f=el('figure');const im=el('img');im.alt='场景插画';im.src=url;im.onclick=()=>zoom(url);f.append(im);box.append(f);save();scroll();}
+ catch(err){e._busy=false;box.textContent='';const s=err&&err.status;
+  const msg=s===401||s===403||s===400?'配图失败：xAI Key 无效或请求被拒（'+s+'），也可能是画面描述被内容审核拦下。':s===402||s===429?'配图失败：额度不足或太频繁（'+s+'）。':s>=500?'配图失败：xAI 服务出错（'+s+'）。':err&&err.code==='empty'?'配图失败：没有返回图片。':'配图失败：连不上 xAI（网络错误；在中国大陆可能需要代理）。';
+  box.append(el('div','sys',msg));picBlock2(e,box,'再试一次');}}
+function zoom(url){const o=el('div');o.style.cssText='position:fixed;inset:0;z-index:9;background:rgba(10,8,6,.92);display:grid;place-items:center;padding:16px;cursor:zoom-out';
+ const im=el('img');im.src=url;im.alt='场景插画';im.style.cssText='max-width:100%;max-height:100%;border:1px solid var(--gold);background:var(--surface);padding:6px';o.append(im);o.onclick=()=>o.remove();document.body.append(o);}
+
+/* ===== 存档（多槽位，自动保存） ===== */
+/* ===== 存档导出 / 导入 ===== */
+function cleanSave(src){const c=JSON.parse(JSON.stringify(Object.assign({},src,{_c:undefined,_win:undefined}),(k,v)=>(k==='_box'||k==='_busy'||/key/i.test(k)&&typeof v==='string'&&/^(sk-|xai-)/.test(v))?undefined:v));
+ if(c.log&&c.log.length>60)c.log=c.log.slice(-60);return c;}
+const b64e=u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s);};
+const b64d=s=>{const b=atob(s);const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;};
+async function packSave(src){const bytes=new TextEncoder().encode(JSON.stringify(cleanSave(src)));
+ if(typeof CompressionStream==='function'){try{const z=new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());return 'JY2:'+b64e(z);}catch(_){}}
+ return 'JY1:'+b64e(bytes);}
+async function unpackSave(code){code=String(code||'').replace(/\s+/g,'');const m=code.match(/[Jj][Yy]([12]):([A-Za-z0-9+/=]+)/);if(!m)throw new Error('不是有效的存档码（应以 JY1: 或 JY2: 开头）');
+ let bytes=b64d(m[2]);if(m[1]==='2'){if(typeof DecompressionStream!=='function')throw new Error('这个浏览器无法解压 JY2 存档码');bytes=new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());}
+ const s=JSON.parse(new TextDecoder().decode(bytes));if(!s||typeof s!=='object'||!s.name||!Array.isArray(s.log)||typeof s.lv!=='number')throw new Error('存档内容不完整');return s;}
+function modal(title){const o=el('div');o.style.cssText='position:fixed;inset:0;z-index:8;background:rgba(10,8,6,.88);display:grid;place-items:center;padding:16px;overflow-y:auto';
+ const b=el('div','drawer');b.style.cssText='max-width:520px;width:100%;max-height:none';const h=el('h4');h.style.cssText='margin:0;font-family:var(--brush);font-weight:400;font-size:24px;color:var(--gold)';h.textContent=title;b.append(h);o.append(b);
+ o.onclick=e=>{if(e.target===o)o.remove();};document.body.append(o);return {o,b};}
+const taCss='width:100%;min-height:110px;background:var(--bg);border:1px solid var(--line);padding:8px;font-family:var(--sans);font-size:12px;color:var(--ink);word-break:break-all;resize:vertical';
+async function openSaveIO(){const {o,b}=modal('存档');
+ let src=S;if(!src){const idx=lsGet(IDX)||{};const id=Object.keys(idx).sort((a,c)=>idx[c].t-idx[a].t)[0];if(id)src=lsGet(SAVE+'~'+id);}
+ const ex=el('div','grp');ex.append(el('h4',null,'导出存档'+(src?'（'+src.name+' · '+src.lv+'级 · 第'+src.day+'日）':'')));
+ if(src){const t=el('textarea');t.readOnly=true;t.style.cssText=taCss;t.value='生成中……';ex.append(t);const code=await packSave(src);t.value=code;
+  const bx=el('div','rbtns');const cp=el('button','go2','复制存档码');cp.onclick=async()=>{let ok=false;try{await navigator.clipboard.writeText(code);ok=true;}catch(_){}
+   if(!ok){t.focus();t.select();try{ok=document.execCommand('copy');}catch(_){}}cp.textContent=ok?'已复制 ✓':'请长按上面的文字手动复制';};
+  const dl=el('button','go2','下载 .txt');dl.onclick=()=>{try{const a=el('a');a.href=URL.createObjectURL(new Blob([code],{type:'text/plain'}));a.download='剑影江湖-'+src.name+'-第'+src.day+'日.txt';document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}catch(_){dl.textContent='此环境不能下载，请复制';}};
+  bx.append(cp,dl);ex.append(bx,el('div','rhint','存档码不含 API Key。把它存到备忘录或发给自己，下次在「导入存档」里粘贴即可继续。'));}
+ else ex.append(el('div','empty','还没有可导出的进度。'));b.append(ex);
+ const im=el('div','grp');im.append(el('h4',null,'导入存档'));const t2=el('textarea');t2.setAttribute('autocapitalize','off');t2.setAttribute('autocorrect','off');t2.setAttribute('spellcheck','false');t2.style.cssText=taCss;t2.placeholder='在这里粘贴存档码（JY1:… 或 JY2:…）';im.append(t2);
+ const fi=el('input');fi.type='file';fi.accept='.txt,text/plain';fi.style.display='none';fi.onchange=()=>{const f=fi.files&&fi.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{t2.value=String(r.result||'');};r.readAsText(f);};
+ const msg=el('div','rhint');const bx2=el('div','rbtns');const pf=el('button','go2','选择 .txt 文件');pf.onclick=()=>fi.click();
+ const go=el('button','go2 team','导入并继续');go.onclick=async()=>{try{const s=await unpackSave(t2.value);importSave(s);o.remove();}catch(e){msg.textContent='导入失败：'+(e&&e.message||e);msg.style.color='var(--cinnabar)';}};
+ bx2.append(go,pf);im.append(bx2,fi,msg);if(S&&!S.over)im.append(el('div','rhint','导入会切换到导入的存档，当前进度已自动保存在存档列表里（若环境支持保存）。'));b.append(im);
+ const cl=el('button','rclose','关闭');cl.onclick=()=>o.remove();b.append(cl);}
+function importSave(s){if(S)save();S=s;SLOT='s'+Date.now().toString(36)+'i';$('menu').hidden=true;closeAll();migrate();redraw();
+ if(S.over){ui();$('chips').textContent='';$('status').textContent='故事结束';save();return;}
+ $('status').textContent='点上面的选项，或写下你的行动';say('—— 存档已导入，续上前缘 ——','bad');S._skip=1;S._win=null;if(S.fight)S.fight.win=null;go();}
+function storageNotice(){const n=$('storeNote');if(!n)return;n.hidden=!STORE_RISK;n.textContent=LS_OK?'当前环境可能不保存进度（例如应用内预览），请定期点「存档」导出存档码。':'当前环境不能保存进度（浏览器存储不可用），游戏只在本次打开期间有效，请定期导出存档；API Key 也需要每次重新填写。';}
+function exportReminder(){if(!STORE_RISK||!S||S.over)return;if(S.steps>=(S._remindAt||20)){S._remindAt=S.steps+20;push({k:'s',t:'提醒：当前环境可能不保存进度，记得点底部「存档」导出存档码。'});}}
+
+function lsGet(k){try{return JSON.parse(LS.getItem(k)||'null');}catch(_){return null}}
+function lsSet(k,v){try{LS.setItem(k,JSON.stringify(v));return true;}catch(_){return false}}
+function lsDel(k){try{LS.removeItem(k);}catch(_){}}
+function save(){if(!S||!SLOT)return;S.t=Date.now();const c=Object.assign({},S);delete c._c;delete c._win;c.choices=S.choices;c.log=S.log.map(e=>{if(!('_box' in e)&&!('_busy' in e))return e;const o=Object.assign({},e);delete o._box;delete o._busy;return o;});
+ if(lsSet(SAVE+'~'+SLOT,c)){const idx=lsGet(IDX)||{};idx[SLOT]={sum:S.name+' · '+S.lv+'级 · '+S.el+'属 · '+LOC[S.loc].n+(S.over?' · 已完结':''),t:S.t};lsSet(IDX,idx);$('saveNote').textContent=LS_OK?(STORE_RISK?'已暂存（建议导出）':'已自动保存'):'仅本次有效，请导出';}}
+function fmtTime(t){const d=new Date(t);const p=n=>String(n).padStart(2,'0');return (d.getMonth()+1)+'月'+d.getDate()+'日 '+p(d.getHours())+':'+p(d.getMinutes());}
+function renderSlots(){const box=$('slots');box.textContent='';const idx=lsGet(IDX)||{};const ids=Object.keys(idx).sort((a,b)=>idx[b].t-idx[a].t);
+ if(!ids.length)return;box.append(el('div','slotHead','继续闯荡'));
+ ids.forEach(id=>{const row=el('div','slot');const g=el('button','slotGo');g.append(el('strong',null,idx[id].sum),el('span',null,fmtTime(idx[id].t)));g.onclick=()=>loadSlot(id);
+  const del=el('button','slotDel','删除');let armed=false;del.onclick=()=>{if(!armed){armed=true;del.textContent='确认删除';del.classList.add('armed');setTimeout(()=>{armed=false;del.textContent='删除';del.classList.remove('armed');},4000);return;}
+   lsDel(SAVE+'~'+id);const ix=lsGet(IDX)||{};delete ix[id];lsSet(IDX,ix);renderSlots();};row.append(g,del);box.append(row);});}
+function loadSlot(id){const s=lsGet(SAVE+'~'+id);if(!s){renderSlots();return;}S=s;SLOT=id;migrate();$('menu').hidden=true;redraw();
+ if(S.over){ui();$('chips').textContent='';$('status').textContent='故事结束';return;}
+ $('status').textContent='点上面的选项，或写下你的行动';say('—— 续上前缘 ——','bad');S._skip=1;S._win=null;
+ if(S.fight){S.fight.win=null;}go();}
+function newGame(){const name=($('name').value.trim()||'林啸').slice(0,6);SLOT='s'+Date.now().toString(36);S=fresh(name,pickEl);$('menu').hidden=true;$('log').textContent='';$('status').textContent='点上面的选项，或写下你的行动';intro();}
+$('newGame').onclick=newGame;
+$('toMenu').onclick=()=>{save();closeAll();$('menu').hidden=false;renderSlots();};
+drawEls();renderSlots();syncKeyUI();storageNotice();$('ioBtn').onclick=openSaveIO;$('ioBtn2').onclick=openSaveIO;
+</script>
+</body></html>
