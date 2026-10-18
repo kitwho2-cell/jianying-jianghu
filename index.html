@@ -420,7 +420,7 @@ const BOOKS=SKILLS.map(s=>s.need).filter(Boolean);
 const NPC=["醉酒的老剑客","卖唱的盲女","落魄书生","独臂刀客","神秘的红衣女子","化缘的小沙弥","满脸刀疤的镖师","算命瞎子"];
 
 let S=null,SLOT=null;
-function fresh(name,E){const s={name,el:E,lv:1,hp:60,mhp:60,mp:30,mmp:30,xp:0,gold:20,rep:0,karma:0,day:1,loc:"town",seen:["town"],inv:{"金疮药":2,"师父的旧剑":1},eq:{weapon:"师父的旧剑",armor:null,acc:null},gearDef:{},npcs:null,flags:{},clues:0,steps:0,fight:null,log:[],notes:[],choices:[],over:false,t:Date.now()};
+function fresh(name,E){const s={name,el:E,lv:1,hp:60,mhp:60,mp:30,mmp:30,xp:0,gold:20,rep:0,karma:0,day:1,loc:"town",seen:["town"],inv:{"金疮药":2,"师父的旧剑":1,"半块玉佩":1,"火折子":1},learned:[],itemDef:{},eq:{weapon:"师父的旧剑",armor:null,acc:null},gearDef:{},npcs:null,flags:{},clues:0,steps:0,fight:null,log:[],notes:[],choices:[],over:false,t:Date.now()};
  if(E==='土'){s.mhp+=15;s.hp=s.mhp;} if(E==='水'){s.mmp+=10;s.mp=s.mmp;} return s;}
 
 /* ===== 输出层（沿用参考页的日志样式） ===== */
@@ -454,16 +454,16 @@ function foeCard(){const c=$('foe');if(!c)return;const f=S&&S.fight;if(!f||S.ove
  const tr=el('div','ftr');const i=el('i');i.style.width=(r*100)+'%';i.style.background=r<.25?'var(--cinnabar)':r<.5?'#d9883b':'var(--gold)';tr.append(i);c.append(tr);
  const st=el('div','fst');if(r<.25)st.append(el('span','low','残血'));if(f.guard)st.append(el('span','gd','守御'));if(f.bleed)st.append(el('span','px','你中毒（'+f.bleed+'）'));if(S._guard)st.append(el('span','gd','你在守御'));
  const sk=mySkills().map(s=>skillEl(s));if(sk.some(x=>KE[x]===f.el))st.append(el('span',null,'怕'+Object.keys(KE).find(k=>KE[k]===f.el)+'属'));
- if(st.childNodes.length)c.append(st);}
+ if(st.childNodes.length)c.append(st);if(f.comps&&f.comps.length)c.append(el('div','fhp','助战：'+f.comps.map(m=>m.n+(m.rel>=70?'（可合击）':'')).join('、')));if(f.seal||f.brk){const x=el('div','fst');if(f.seal)x.append(el('span','gd','封穴'));if(f.brk)x.append(el('span','low','破防'));c.append(x);}}
 function ui(){foeCard();$('lv').textContent=S.lv;$('nm').textContent=S.name;$('elb').textContent=S.el;$('elb').style.setProperty('--ec',ELS[S.el].c);
  $('where').textContent=(S.place||LOC[S.loc].n)+' · 第'+S.day+'日';$('aN').textContent=aiOn()?'开':'关';
  $('hp').textContent=S.hp+'/'+S.mhp;$('qi').textContent=S.mp+'/'+S.mmp;$('xp').textContent=S.xp+'/'+need();
  $('hpB').style.width=(S.hp/S.mhp*100)+'%';$('qiB').style.width=(S.mp/S.mmp*100)+'%';$('xpB').style.width=(S.xp/need()*100)+'%';
  $('qN').textContent=Math.min(S.clues,5);$('mN').textContent=S.seen.length;$('kN').textContent=mySkills().length;
  $('iN').textContent=Object.values(S.inv).reduce((a,b)=>a+b,0);$('jN').textContent=S.notes.length;$('rN').textContent=npcList().length;
- const pt=$('party');pt.hidden=!S.flags.allyOn;pt.textContent='';if(S.flags.allyOn){pt.append('同行：');pt.append(el('button',null,'柳青'));}
+ const pt=$('party'),pa=party();pt.hidden=!pa.length;pt.textContent='';if(pa.length){pt.append('同行：');pa.forEach(n=>pt.append(el('button',null,n)));}
  renderPanels();}
-const mySkills=()=>SKILLS.filter(s=>!s.need||S.inv[s.need]).concat((S.xsk||[]).map(n=>({n,mp:10,m:1.5,d:'奇遇',el:(S.xskEl&&S.xskEl[n])||hashEl(n)})));
+const mySkills=()=>SKILLS.filter(s=>!s.need||(S.learned||[]).includes(s.n)).concat((S.xsk||[]).map(n=>({n,mp:10,m:1.5,d:'奇遇',el:(S.xskEl&&S.xskEl[n])||hashEl(n)})));
 const skillEl=s=>s.el||weaponEl();
 function group(title,list,cls,empty){const g=el('section','grp');g.append(el('h4',null,title));const d=el('div');
  if(!list.length)d.append(el('span','empty',empty||'暂无'));list.forEach(x=>d.append(el('span','tag '+(cls||''),x)));g.append(d);return g;}
@@ -480,11 +480,8 @@ function renderPanels(){
  p=$('mPanel');p.textContent='';const mc=el('div','mchips');mc.append(el('h6',null,'已知地点（点击前往）'));
  Object.keys(LOC).filter(k=>k!=='cult'||S.flags.cultMap).forEach(k=>{const b=el('button',k===S.loc?'cur':'',LOC[k].n+(S.seen.includes(k)?'':'（未至）'));b.onclick=()=>{closeAll();if(S.over||S.fight||k===S.loc)return;say('▸ 前往'+LOC[k].n,'you');goTo(k);};mc.append(b);});p.append(mc);closer(p,'收起地图');
  p=$('kPanel');p.textContent='';p.append(group('已学武功',mySkills().map(s=>s.n+elTag(skillEl(s))+'（'+s.d+(s.mp?'·内力'+s.mp:'')+(s.el?'':'·随兵器')+'）'),'sk'));
- p.append(group('未得秘籍',SKILLS.filter(s=>s.need&&!S.inv[s.need]).map(s=>'？？？'),'', '已全部习得'));closer(p);
- p=$('iPanel');p.textContent='';const idv=el('div','grp');idv.append(el('h4',null,'行囊'));const box=el('div');
- const ks=Object.keys(S.inv);if(!ks.length)box.append(el('span','empty','空空如也'));
- ks.forEach(k=>{const g=gearOf(k);const on=g&&S.eq[g.t]===k;const b=el('button','tag gear itm'+(on?' sel':''),k+(S.inv[k]>1?'×'+S.inv[k]:'')+(g?'（'+gearTxt(g)+(on?'·已装备':'')+'）':''));b.onclick=()=>{if(g){if(S.over)return;if(S.fight){say('交手之际来不及更换装备。','bad');return;}on?unequip(k):equip(k);ui();save();return;}closeAll();if(S.over)return;if(BOOKS.includes(k)){say('秘籍已熟记于心，战斗时可直接施展。','bad');return;}if(S.fight){say('▸ 服用'+k,'you');useItem(k,true);}else{say('▸ 服用'+k,'you');useItem(k,false);}};box.append(b);});
- idv.append(box);p.append(idv);p.append(el('div','rhint','点药品直接服用；点兵器、护甲、饰品可装备或卸下（每类一件）。'));closer(p);
+ p.append(group('未得秘籍',SKILLS.filter(s=>s.need&&!(S.learned||[]).includes(s.n)).map(s=>S.inv[s.need]?s.need+'（行囊中，未参悟）':'？？？'),'', '已全部习得'));closer(p);
+ renderInv();
  p=$('jPanel');p.textContent='';const rows=el('div','rows');if(!S.notes.length)rows.append(el('div','empty','还没有记事。'));
  S.notes.slice(0,40).forEach(t=>{const r=el('div','rw');r.append(el('strong',null,t));rows.append(r);});p.append(rows);closer(p);
  if(typeof renderAI==='function')renderAI();renderRel();}
@@ -496,19 +493,136 @@ $('where').style.cursor='pointer';$('where').onclick=()=>toggle('mBtn','mPanel')
 
 /* ===== 装备 ===== */
 const GEAR={"师父的旧剑":{t:'weapon',atk:2,def:0,el:null},"精钢剑":{t:'weapon',atk:6,def:0,el:'金'},"寒铁刀":{t:'weapon',atk:9,def:0,el:'水'},"青锋剑":{t:'weapon',atk:12,def:0,el:'木'},
- "皮甲":{t:'armor',atk:0,def:3,el:'土'},"锁子甲":{t:'armor',atk:0,def:6,el:'金'},"金丝软甲":{t:'armor',atk:0,def:10,el:'火'},"玉佩护符":{t:'acc',atk:1,def:2,el:'水'},"铁护腕":{t:'acc',atk:2,def:1,el:'金'}};
+ "皮甲":{t:'armor',atk:0,def:3,el:'土'},"锁子甲":{t:'armor',atk:0,def:6,el:'金'},"金丝软甲":{t:'armor',atk:0,def:10,el:'火'},"玉佩护符":{t:'acc',atk:0,def:1,el:'水',mmp:15,d:'温润的玉佩，养气凝神，内力上限 +15。'},"铁护腕":{t:'acc',atk:1,def:1,el:'金',crit:.08,d:'精铁护腕，出手更稳更狠，暴击率 +8%。'},"灵蛇戒":{t:'acc',atk:0,def:0,el:'水',dodge:.07,d:'蛇形银戒，身法更灵，闪避率 +7%。'}};
+const accSum=k=>Object.values(S.eq||{}).reduce((a,n)=>{const g=n&&gearOf(n);return a+((g&&g[k])||0);},0);
 const weaponEl=()=>{const g=S.eq&&S.eq.weapon&&gearOf(S.eq.weapon);return (g&&g.el)||S.el;};
 const armorEl=()=>{const g=S.eq&&S.eq.armor&&gearOf(S.eq.armor);return (g&&g.el)||null;};
 const SLOTN={weapon:'兵器',armor:'护甲',acc:'饰品'};
 const gearOf=n=>(S.gearDef&&S.gearDef[n])||GEAR[n]||null;
-function atkStat(){let a=S.lv*2+(S.el==='金'?2:0),g2=0;Object.values(S.eq).forEach(n=>{const g=n&&gearOf(n);if(g)g2+=g.atk;});return a+Math.round(g2*.7);}
-function defStat(){let d=Math.floor(S.lv/2)+(S.el==='土'?1:0),g2=0;Object.values(S.eq).forEach(n=>{const g=n&&gearOf(n);if(g)g2+=g.def;});return d+Math.round(g2*.8);}
+function atkStat(){let a=S.lv*2+(S.el==='金'?2:0),g2=0;Object.values(S.eq).forEach(n=>{const g=n&&gearOf(n);if(g)g2+=g.atk;});return a+Math.round(g2*.7)+((S.buff&&S.buff.atk)||0);}
+function defStat(){let d=Math.floor(S.lv/2)+(S.el==='土'?1:0),g2=0;Object.values(S.eq).forEach(n=>{const g=n&&gearOf(n);if(g)g2+=g.def;});return d+Math.round(g2*.8)+((S.buff&&S.buff.def)||0);}
 function gearTxt(g){return [SLOTN[g.t]+(g.el?'·'+g.el:''),g.atk?'攻+'+g.atk:'',g.def?'防+'+g.def:''].filter(Boolean).join('·');}
-function equip(n,quiet){const g=gearOf(n);if(!g||!S.inv[n])return;const old=S.eq[g.t];S.eq[g.t]=n;if(!quiet)say('你'+(old?'卸下'+old+'，':'')+'装备上【'+n+'】（'+gearTxt(g)+'）。','sys');}
-function unequip(n){Object.keys(S.eq).forEach(k=>{if(S.eq[k]===n)S.eq[k]=null;});say('你卸下了【'+n+'】。','sys');}
+function equip(n,quiet){const g=gearOf(n);if(!g||!S.inv[n])return;const old=S.eq[g.t];const og=old&&gearOf(old);if(og&&og.mmp){S.mmp-=og.mmp;}S.eq[g.t]=n;if(g.mmp)S.mmp+=g.mmp;S.mp=Math.min(S.mp,S.mmp);if(!quiet)say('你'+(old?'卸下'+old+'，':'')+'装备上【'+n+'】（'+gearTxt(g)+'）。','sys');}
+function unequip(n){Object.keys(S.eq).forEach(k=>{if(S.eq[k]===n){const g=gearOf(n);if(g&&g.mmp){S.mmp-=g.mmp;S.mp=Math.min(S.mp,S.mmp);}S.eq[k]=null;}});say('你卸下了【'+n+'】。','sys');}
 function gainGear(n,def,auto){if(def){S.gearDef=S.gearDef||{};S.gearDef[n]=def;}item(n);const g=gearOf(n);if(!g)return;const cur=S.eq[g.t]&&gearOf(S.eq[g.t]);
  if(auto&&(!cur||(g.atk+g.def)>(cur.atk+cur.def)))equip(n);}
 function lootGear(lv){const pool=lv>=6?["青锋剑","金丝软甲","寒铁刀","锁子甲"]:lv>=3?["寒铁刀","锁子甲","铁护腕","精钢剑"]:["皮甲","铁护腕","玉佩护符","精钢剑"];return pick(pool);}
+/* ===== 物品数据库 ===== */
+// c: gear 装备 / drug 药物 / tool 道具 / quest 任务 / misc 杂物
+const ITEMS={
+ "金疮药":{c:'drug',d:'江湖常备的止血伤药。',hp:'25+15%',p:8},
+ "灵芝":{c:'drug',d:'深山灵芝，补气养元。',hp:'60%',mp:'60%',p:30},
+ "回气丹":{c:'drug',d:'调和经脉的丹丸，迅速恢复内力。',mp:30,p:10},
+ "解毒丹":{c:'drug',d:'云隐寺秘制，可解百毒。',cure:1,hp:10,p:10},
+ "大力丸":{c:'drug',d:'服后筋骨贲张，接下来一战攻击 +4。',buff:{atk:4},p:15},
+ "护体丹":{c:'drug',d:'服后真气护体，接下来一战防御 +4。',buff:{def:4},p:15},
+ "飞镖":{c:'tool',d:'精钢打造的暗器，战斗中掷出，无视防御。',dmg:'14+等级×3',combat:1,p:6},
+ "烟雾弹":{c:'tool',d:'掷地生烟，必定脱身（对宗师无效）。',flee:1,combat:1,p:15},
+ "火折子":{c:'tool',d:'吹一口便能燃起的火种。有它可以安心探索山洞暗处（不消耗）。',light:1,p:5},
+ "丐帮信物":{c:'tool',d:'一截打狗棒上的绿竹节。在青石镇或汴京出示，丐帮弟子会告诉你消息。',token:['town','city'],p:0},
+ "血月令牌":{c:'tool',d:'血月教徒的腰牌。在血月教总坛出示，可混过守卫、打探虚实。',token:['cult'],p:0},
+ "血月总坛地图":{c:'tool',d:'标着北山血月峰的密道，可前往血月教总坛。',map:1,p:0},
+ "银票（五十两）":{c:'tool',d:'汇通钱庄的银票，可兑换五十两白银。',silver:50,p:50},
+ "银票（百两）":{c:'tool',d:'汇通钱庄的银票，可兑换一百两白银。',silver:100,p:100},
+ "女儿红":{c:'tool',d:'绍兴陈酿，好酒之人无法拒绝。可在「关系」里赠送。',gift:10,p:10},
+ "胭脂":{c:'tool',d:'京城名铺的胭脂。可在「关系」里赠送。',gift:10,p:10},
+ "白玉簪":{c:'tool',d:'温润白玉雕成的发簪，贵重的礼物。',gift:15,p:30},
+ "流云剑谱":{c:'tool',d:'沧浪派镇派剑谱。使用后习得「流云剑诀」。',book:'流云剑诀',p:0},
+ "金刚掌诀":{c:'tool',d:'云隐寺外家掌法心诀。使用后习得「金刚掌」。',book:'金刚掌',p:0},
+ "太虚残卷":{c:'tool',d:'前朝高人手书的残卷。使用后习得「太虚剑意」。',book:'太虚剑意',p:0},
+ "半块玉佩":{c:'quest',d:'师父临终交给你的半块玉佩，背面刻着「沧」字和水波纹。据说是开启前朝宝库的钥匙之一。'},
+ "烧焦的密信":{c:'quest',d:'从黑松林灰烬中抢出的半封信：「……沧浪江水寨……月圆之夜……」'},
+ "狼皮":{c:'misc',d:'一张完整的狼皮，皮货铺会收。',p:12},
+ "山贼腰牌":{c:'misc',d:'粗木刻的腰牌，官府悬赏会收。',p:8},
+ "旧铜钱":{c:'misc',d:'一串前朝铜钱，古董商或许有兴趣。',p:5},
+ "破碎的刀刃":{c:'misc',d:'断成两截的刀，铁匠铺按废铁收。',p:4}
+};
+const CATN={gear:'装备',drug:'药物',tool:'道具',quest:'任务',misc:'杂物'};
+function inferItem(n){n=String(n);
+ if(/银票/.test(n))return {c:'tool',d:'可兑换白银的银票。',silver:50,p:50};
+ if(/秘籍|剑谱|刀谱|心法|掌诀|拳谱|真经|残卷/.test(n))return {c:'tool',d:'一本武学典籍，使用后可习得其中武功。',book:n.replace(/秘籍|剑谱|刀谱|心法|残卷|真经|拳谱|掌诀/g,'')||n,p:0};
+ if(/地图|舆图/.test(n))return {c:'tool',d:'一张标注着隐秘路径的地图。',p:0};
+ if(/令牌|腰牌|信物|令$/.test(n))return {c:'tool',d:'某个门派或组织的信物，或许能在特定地方派上用场。',token:[],p:0};
+ if(/镖|飞刀|针|暗器|袖箭|霹雳/.test(n))return {c:'tool',d:'暗器，战斗中可掷出伤敌。',dmg:'14+等级×3',combat:1,p:6};
+ if(/烟/.test(n))return {c:'tool',d:'可借烟遁走。',flee:1,combat:1,p:15};
+ if(/火折|火把|灯/.test(n))return {c:'tool',d:'照明之物，可探索暗处。',light:1,p:5};
+ if(/解毒|清心/.test(n))return {c:'drug',d:'解毒的药物。',cure:1,hp:10,p:10};
+ if(/酒|胭脂|簪|香囊|手帕|礼/.test(n))return {c:'tool',d:'可以赠送他人的礼物。',gift:10,p:10};
+ if(/丹|丸|药|散|膏|芝|参|草|露/.test(n))return {c:'drug',d:'一味药物。',hp:30,p:10};
+ if(/信|线索|残片|碎片|玉佩|地契|名册|账本|遗书/.test(n))return {c:'quest',d:'与主线相关的物件。'};
+ return {c:'misc',d:'不知有什么用的物件，可以拿到集市卖掉。',p:5};}
+function itemInfo(n){if(gearOf(n))return Object.assign({c:'gear'},gearOf(n));return (S.itemDef&&S.itemDef[n])||ITEMS[n]||inferItem(n);}
+function hpAmt(v){if(typeof v==='number')return v;if(!v)return 0;const m=String(v).match(/^(\d+)?\+?(\d+)%$/);if(m)return (+m[1]||0)+Math.round(S.mhp*(+m[2])/100);return parseInt(v)||0;}
+function mpAmt(v){if(typeof v==='number')return v;if(!v)return 0;const m=String(v).match(/(\d+)%/);return m?Math.round(S.mmp*m[1]/100):parseInt(v)||0;}
+function dartDmg(){return 14+S.lv*3;}
+function effectLines(n){const i=itemInfo(n);const L=[];
+ if(i.c==='gear'){L.push(SLOTN[i.t]+(i.el?' · '+i.el+'属':' · 无属性（随根骨）'));if(i.atk)L.push('攻击 +'+i.atk);if(i.def)L.push('防御 +'+i.def);if(i.mmp)L.push('内力上限 +'+i.mmp);if(i.crit)L.push('暴击率 +'+Math.round(i.crit*100)+'%');if(i.dodge)L.push('闪避率 +'+Math.round(i.dodge*100)+'%');}
+ if(i.hp)L.push('回复气血 '+(typeof i.hp==='number'?i.hp:hpAmt(i.hp)+'（'+i.hp+'）'));if(i.mp)L.push('回复内力 '+mpAmt(i.mp));if(i.cure)L.push('解除中毒');
+ if(i.buff){if(i.buff.atk)L.push('下一战攻击 +'+i.buff.atk);if(i.buff.def)L.push('下一战防御 +'+i.buff.def);}
+ if(i.dmg)L.push('战斗中造成 '+dartDmg()+' 点伤害（无视防御）');if(i.flee)L.push('战斗中必定脱身（宗师战无效）');if(i.light)L.push('照明：探索山洞不再触发机关');
+ if(i.token)L.push('可在'+(i.token.length?i.token.map(k=>LOC[k]?LOC[k].n:k).join('、'):'特定地点')+'出示');if(i.map)L.push('可前往血月教总坛');if(i.silver)L.push('兑换白银 '+i.silver+' 两');
+ if(i.gift)L.push('赠送：好感 +'+Math.round(i.gift/3)+' 左右（受递减规则影响）');if(i.book)L.push('习得武功「'+i.book+'」');if(i.c==='quest')L.push('任务物品，不可丢弃');
+ if(i.p&&i.c!=='quest')L.push('集市收价约 '+sellPrice(n)+' 两');return L;}
+function sellPrice(n){const i=itemInfo(n);if(i.c==='gear')return Math.max(5,Math.round(((i.atk||0)+(i.def||0))*6));return Math.max(1,Math.round((i.p||3)*(i.c==='misc'?1:.5)));}
+const atMarket=()=>S.loc==='town'||S.loc==='city';
+const learned=s=>(S.learned||[]).includes(s);
+function useItem(n,inFight){if(!S.inv[n]){say('你没有'+n+'。','bad');return inFight?fightMenu():go();}const i=itemInfo(n);
+ if(i.c==='drug'){if(inFight&&S.fight.pot>=2){say('这一战已服过两次药，药力再难化开。','bad');return fightMenu();}if(inFight)S.fight.pot++;item(n,-1);
+  const h=hpAmt(i.hp),m=mpAmt(i.mp);if(h)heal(h);if(m)S.mp=Math.min(S.mmp,S.mp+m);
+  let t='服下'+n+(h?'，气血 +'+h:'')+(m?'，内力 +'+m:'');if(i.cure){if(S.fight)S.fight.bleed=0;t+='，毒性尽解';}
+  if(i.buff){S.buff={atk:(i.buff.atk||0),def:(i.buff.def||0)};t+='，'+(i.buff.atk?'攻击 +'+i.buff.atk:'防御 +'+i.buff.def)+'（持续本战/下一战）';}
+  say(t,'sys');if(inFight)return enemyTurn();return go();}
+ if(i.c==='tool'){
+  if(i.dmg){if(!inFight){say('这是战斗中用的暗器。','bad');return go();}item(n,-1);const f=S.fight;const d=dartDmg();f.hp-=d;push({k:'r',w:true,t:'掷出'+n,d:'正中要害，造成 '+d+' 点伤害（剩余 '+Math.max(0,f.hp)+'/'+f.mhp+'）'});if(f.hp<=0)return winFight();phaseCheck();return enemyTurn();}
+  if(i.flee){if(!inFight){say('还是留到危急时再用吧。','bad');return go();}if(S.fight.boss){say('萧寒袍袖一卷，烟雾尽散：「雕虫小技！」','bad');item(n,-1);return enemyTurn();}item(n,-1);say('你将烟雾弹往地上一摔，白烟滚滚，趁机脱身。');S.fight=null;S._win=null;S.buff=null;$('status').textContent='点上面的选项，或写下你的行动';return go();}
+  if(inFight){say('交手之际，这东西派不上用场。','bad');return fightMenu();}
+  if(i.book){if(learned(i.book)||mySkills().some(s=>s.n===i.book)){say('「'+i.book+'」你早已练熟。','bad');return go();}item(n,-1);S.learned=(S.learned||[]).concat(i.book);
+   if(!SKILLS.some(s=>s.n===i.book)){S.xsk=(S.xsk||[]).concat(i.book).slice(-6);S.xskEl=S.xskEl||{};S.xskEl[i.book]=S.xskEl[i.book]||hashEl(i.book);}
+   say('你闭关参悟'+n+'，豁然贯通——习得武功「'+i.book+'」！','sys');note('习得'+i.book);return go();}
+  if(i.silver){item(n,-1);S.gold+=i.silver;say('你到钱庄兑了银票，银两 +'+i.silver,'sys');return go();}
+  if(i.map){S.flags.cultMap=1;say('你展开地图细看，血月峰的密道清清楚楚。打开「地图」即可前往血月教总坛。');return go();}
+  if(i.light){say('火折子在怀里，随时可以照亮暗处。探索山洞时会自动用上。');return go();}
+  if(i.token)return useToken(n,i);
+  if(i.gift){say('打开「关系」，点一个人物即可把'+n+'送给他。');return go();}
+  say('你把'+n+'翻来覆去看了看，暂时不知道有什么用。');return go();}
+ if(i.c==='quest'){say(n+'：'+i.d);return go();}
+ say('这东西没什么用，可以拿到集市卖掉。');go();}
+function useToken(n,i){if(!(i.token||[]).includes(S.loc)){say('在这里出示'+n+'，没有人理会你。'+(i.token&&i.token.length?'（可在'+i.token.map(k=>LOC[k].n).join('、')+'使用）':''));return go();}
+ if(n==='丐帮信物'){say('街角的乞丐看到竹节，立刻收起懒散：「原来是自己人。」他压低声音告诉你一个消息。');if(S.clues<12)addClue('丐帮暗桩：血月护法常在汴京夜市出没');else gainXp(20);if(S.npcs&&S.npcs['丐帮书生'])rel('丐帮书生',3,'借丐帮暗桩打探消息',{raw:1});item(n,-1);return go();}
+ if(n==='血月令牌'){say('你亮出令牌，守卫躬身放行。你在总坛里摸清了萧寒的练功时辰——他功行至午时，真气最虚。');S.flags.weak=1;note('混入总坛，得知萧寒破绽');item(n,-1);return go();}
+ say('你出示'+n+'，对方神色一变，与你说了几句要紧的话。');gainXp(15);item(n,-1);return go();}
+function giftTo(nm,itemName){const n=S.npcs&&S.npcs[nm];const i=itemInfo(itemName);if(!n||!S.inv[itemName]||!i.gift)return;item(itemName,-1);
+ say('你把'+itemName+'送给了'+nm+'。');rel(nm,i.gift,'收到你送的'+itemName,{act:'giftitem'});ui();save();}
+function sellItem(n,all){if(!atMarket()){say('这里没有收东西的铺子，到青石镇或汴京的集市再卖。','bad');return;}const i=itemInfo(n);if(i.c==='quest')return;
+ const k=all?S.inv[n]:1;const isEq=Object.values(S.eq).includes(n);if(isEq&&S.inv[n]<=k){unequip(n);}const g=sellPrice(n)*k;S.inv[n]-=k;if(S.inv[n]<=0)delete S.inv[n];S.gold+=g;say('卖掉'+n+(k>1?'×'+k:'')+'，得银 '+g+' 两。','sys');}
+function dropItem(n){const i=itemInfo(n);if(i.c==='quest')return;if(Object.values(S.eq).includes(n)&&S.inv[n]<=1)unequip(n);item(n,-1);say('你丢掉了'+n+'。','bad');}
+function combatItems(){return Object.keys(S.inv).filter(n=>{const i=itemInfo(n);return i.c==='drug'||(i.c==='tool'&&i.combat);});}
+function itemMenu(){const ks=combatItems();const ch=ks.map(n=>{const i=itemInfo(n);return [n+'×'+S.inv[n]+(i.c==='drug'?'（'+effectLines(n)[0]+'）':''),()=>useItem(n,true),1];});
+ if(!ks.length)ch.push(['（没有可用的道具）',fightMenu,1]);ch.push(['返回',fightMenu,1]);show(ch);}
+let invTab='装备',invSel=null;
+function renderInv(){const p=$('iPanel');if(!p)return;p.textContent='';const tabs=[['装备','gear'],['药物','drug'],['道具','tool'],['任务','quest'],['杂物','misc']];
+ const f=el('div','rfil');tabs.forEach(([t,c])=>{const cnt=Object.keys(S.inv).filter(n=>itemInfo(n).c===c).length;const b=el('button',null,t+(cnt?' '+cnt:''));b.setAttribute('aria-pressed',String(invTab===t));b.onclick=()=>{invTab=t;invSel=null;renderInv();};f.append(b);});p.append(f);
+ const c=tabs.find(x=>x[0]===invTab)[1];const ks=Object.keys(S.inv).filter(n=>itemInfo(n).c===c);
+ p.append(kv([['银两',S.gold],['攻击',atkStat()],['防御',defStat()]].concat(S.buff?[['增益',(S.buff.atk?'攻+'+S.buff.atk:'')+(S.buff.def?'防+'+S.buff.def:'')]]:[])));
+ const list=el('div','rlist');if(!ks.length)list.append(el('div','empty','这一类还没有东西。'));
+ ks.forEach(n=>{const i=itemInfo(n);const on=i.c==='gear'&&S.eq[i.t]===n;const r=el('button','rw itm'+(invSel===n?' sel':''));r.style.cssText='width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:6px 0;cursor:pointer';
+  const st=el('strong',null,n+(S.inv[n]>1?' ×'+S.inv[n]:'')+(on?'（已装备）':''));let sub='';
+  if(i.c==='gear'){const cur=S.eq[i.t]&&S.eq[i.t]!==n?gearOf(S.eq[i.t]):null;const da=(i.atk||0)-(cur?cur.atk||0:0),dd=(i.def||0)-(cur?cur.def||0:0);sub=gearTxt(i)+(on?'':' · 对比：攻'+(da>0?'↑'+da:da<0?'↓'+(-da):'=')+' 防'+(dd>0?'↑'+dd:dd<0?'↓'+(-dd):'='));}
+  else sub=effectLines(n).slice(0,2).join(' · ');
+  r.append(st,el('em',null,CATN[i.c]),el('span',null,sub));r.onclick=()=>{invSel=invSel===n?null:n;renderInv();};list.append(r);if(invSel===n)list.append(itemCard(n));});
+ p.append(list);closer(p);}
+function itemCard(n){const i=itemInfo(n);const c=el('div','rcard');const h=el('h5',null,n);h.append(el('small',null,CATN[i.c]+(S.inv[n]>1?' · 持有 '+S.inv[n]:'')));const x=el('button','rx','×');x.onclick=()=>{invSel=null;renderInv();};h.append(x);c.append(h);
+ c.append(el('div','rdesc',i.d||''));const fx=el('div','rows');effectLines(n).forEach(t=>{const r=el('div','rw');r.append(el('span',null,t));fx.append(r);});c.append(fx);
+ const bx=el('div','rbtns');const btn=(t,cls,fn)=>{const b=el('button','go2'+(cls?' '+cls:''),t);b.onclick=fn;bx.append(b);return b;};
+ const act=fn=>()=>{if(S.over)return;closeAll();fn();};
+ if(i.c==='gear'){const on=S.eq[i.t]===n;btn(on?'卸下':'装备',on?'leave':'team',()=>{if(S.fight){say('交手之际来不及更换装备。','bad');return;}on?unequip(n):equip(n);ui();save();});}
+ if(i.c==='drug')btn('使用','team',act(()=>{say('▸ 服用'+n,'you');useItem(n,!!S.fight);}));
+ if(i.c==='tool'&&!i.gift&&(!i.combat||S.fight))btn('使用','team',act(()=>{say('▸ 使用'+n,'you');useItem(n,!!S.fight);}));
+ if(i.c==='tool'&&i.combat&&S.fight)0;
+ if(i.gift){const alive=npcList().filter(x=>!/已故|身亡/.test(x.status||'')&&x.n!=='血色面具人');if(alive.length){const sel=el('select');sel.style.cssText='background:var(--bg);border:1px solid var(--line);padding:4px 8px;color:var(--ink);font-size:13px';alive.forEach(x=>{const o=el('option',null,x.n+'（'+(x.sp||relLabel(x.rel))+'）');o.value=x.n;sel.append(o);});bx.append(sel);btn('赠送','team',()=>{giftTo(sel.value,n);});}}
+ if(i.c!=='quest'){if(atMarket()&&!S.fight){btn('出售（'+sellPrice(n)+'两）','',()=>{sellItem(n);ui();save();});if(S.inv[n]>1)btn('全部出售','',()=>{sellItem(n,true);ui();save();});}
+  let armed=false;const db=btn('丢弃','leave',()=>{if(!armed){armed=true;db.textContent='确认丢弃？';db.style.color='var(--cinnabar)';setTimeout(()=>{armed=false;db.textContent='丢弃';db.style.color='';},4000);return;}dropItem(n);invSel=null;ui();save();});}
+ c.append(bx);return c;}
 
 /* ===== 人物关系 ===== */
 let QUIET=false;
@@ -540,7 +654,7 @@ const NPCINFO={"醉酒的老剑客":{title:'落魄剑客',sect:'无门无派',ag
  "算命瞎子":{title:'算命先生',sect:'无',age:'五十余岁',look:'墨镜长幡，拄一根竹杖',pers:'神神叨叨，偶有真言',lv:'不详'}};
 function npcInit(){S.npcs={};QUIET=true;meet('师父',{title:'铁匠·你的授业恩师',sect:'云隐寺俗家弟子',age:'五十余岁',look:'身形魁梧，双手布满老茧',pers:'沉稳寡言，外冷内热',lv:'一流高手',sp:'师徒',status:'已故（雨夜遇害）',rel:90,ev:'雨夜遇害，临终托付半块玉佩'});
  meet('血色面具人',{title:'杀师仇人',sect:'疑似血月教',age:'不详',look:'戴血色面具，身披黑氅',pers:'狠辣',lv:'绝顶高手',status:'下落不明',rel:-80,ev:'杀害师父'});QUIET=false;}
-function migrate(){if(!S.eq){S.eq={weapon:null,armor:null,acc:null};S.inv=S.inv||{};S.inv['师父的旧剑']=1;S.eq.weapon='师父的旧剑';if(S.flags&&S.flags.sword){S.inv['精钢剑']=1;S.eq.weapon='精钢剑';}}
+function migrate(){S.itemDef=S.itemDef||{};if(!S.learned){S.learned=[];S.inv=S.inv||{};SKILLS.forEach(sk=>{if(sk.need&&S.inv[sk.need]){S.learned.push(sk.n);delete S.inv[sk.need];}});if(!S.inv['半块玉佩'])S.inv['半块玉佩']=1;if(S.flags&&S.flags.cultMap&&!S.inv['血月总坛地图'])S.inv['血月总坛地图']=1;}if(!S.eq){S.eq={weapon:null,armor:null,acc:null};S.inv=S.inv||{};S.inv['师父的旧剑']=1;S.eq.weapon='师父的旧剑';if(S.flags&&S.flags.sword){S.inv['精钢剑']=1;S.eq.weapon='精钢剑';}}
  if(!S.npcs){npcInit();QUIET=true;if(S.flags.monk)meet('慧明大师',{title:'云隐寺住持',rel:30});if(S.flags.boat)meet('沧浪老妪',{title:'沧浪派传人',rel:30});
   if(S.flags.ally)meet('柳青',{title:'师父之女',rel:S.flags.allyOn?40:-5,sp:S.flags.allyOn?'同伴':''});QUIET=false;}}
 const npcList=()=>Object.values(S.npcs||{});
@@ -572,11 +686,11 @@ async function npcPaint(n,box,btn){btn.disabled=true;const isLiu=n.n==='柳青';
 
 /* ===== 基础机制 ===== */
 function gainXp(x){S.xp+=x;say('修为 +'+x,'sys');while(S.xp>=need()){S.xp-=need();S.lv++;S.mhp+=18;S.mmp+=10;S.hp=S.mhp;S.mp=S.mmp;push({k:'u',t:'突破·第'+S.lv+'重',d:'气血上限 +18，内力上限 +10，伤势尽复'});note('突破至第'+S.lv+'重境界');}}
-function item(n,k){S.inv[n]=(S.inv[n]||0)+(k||1);if(S.inv[n]<=0)delete S.inv[n];if(k!==-1)say('获得【'+n+'】','sys');}
+function item(n,k){S.inv[n]=(S.inv[n]||0)+(k||1);if(S.inv[n]<=0)delete S.inv[n];if(k!==-1&&k>-1||k===undefined){const i=itemInfo(n);say('获得【'+n+'】'+(k>1?'×'+k:'')+' · '+CATN[i.c]+(i.book?'（在行囊「道具」中使用即可参悟）':''),'sys');}}
 function hurt(d){S.hp=Math.max(0,S.hp-d);}
 function heal(h){S.hp=Math.min(S.mhp,S.hp+h);}
 function addClue(t){S.clues++;note('线索：'+t);say('获得线索：'+t,'sys');}
-function act(i){const c=S._c&&S._c[i];if(!c||S.over||AI.busy)return;closeAll();say('▸ '+c[0],'you');S.steps++;
+function act(i){const c=S._c&&S._c[i];if(!c||S.over||AI.busy)return;closeAll();say('▸ '+c[0],'you');S.steps++;if(!S.fight)S.turn=(S.turn||0)+1;
  if(aiOn()&&!S.fight&&!c[2])return aiTurn(c[0],c[1]);c[1]();}
 function go(){if(S.over)return;S.place='';if(S.fight)return fightMenu();if(S.hp<=0)return death();checkEnd()||hub();}
 
@@ -591,90 +705,112 @@ function intro(){
   ["检查玉佩",()=>{say('玉佩背面刻着一个「沧」字和细小的水波纹。也许与沧浪江有关。');S.flags.jade=1;addClue('玉佩与沧浪江有关');go();}]]);}
 function hub(){
  const L=LOC[S.loc];
- if(S.steps>1&&chance(0.45)&&!S._skip){S._skip=1;return randomEvent();}
+ if(S.steps>1&&chance(0.35)&&!S._skip){S._skip=1;return randomEvent();}
  S._skip=0;if(chance(.5))S.day++;if(S.hp<S.mhp)heal(Math.round(S.mhp*.06));
  say(pick(L.d));
  const c=[];const sp=story();if(sp)c.push(sp);
  c.push(["四处探索",()=>randomEvent()]);
  if(S.loc==="town"||S.loc==="city")c.push(["去客栈休息（10两）",()=>{if(S.gold<10){say('掌柜白你一眼：「没钱住什么店？」你只得在柴房凑合一夜。');heal(15);}else{S.gold-=10;S.hp=S.mhp;S.mp=S.mmp;say('一夜好眠，气血内力尽复。','sys');}S.day++;go();}],["逛集市",shop]);
- else c.push(["打坐调息",()=>{heal(R(8,15)+S.lv*2+(S.el==='木'?10:0));S.mp=Math.min(S.mmp,S.mp+15+(S.el==='木'?10:0));say('你闭目运气，周天流转，身体舒泰了许多。');if(chance(.25)){say('忽然一阵风声——有人偷袭！');return startFight();}go();}]);
+ else c.push(["打坐调息",()=>{heal(R(8,15)+S.lv*2+(S.el==='木'?10:0));S.mp=Math.min(S.mmp,S.mp+15+(S.el==='木'?10:0));say('你闭目运气，周天流转，身体舒泰了许多。');if(chance(.15)&&canAmbush()){say('忽然一阵风声——有人偷袭！');return startFight();}go();}]);
  c.push(["前往他处",travel]);
  show(c.slice(0,4));}
-function goTo(k){S.loc=k;S.day++;if(!S.seen.includes(k))S.seen.push(k);say('你踏上旅途，风尘仆仆来到'+LOC[k].n+'。');if(chance(.3)){say('半路杀出拦路之人！');startFight();}else go();}
+function goTo(k){S.loc=k;S.day++;if(!S.seen.includes(k))S.seen.push(k);say('你踏上旅途，风尘仆仆来到'+LOC[k].n+'。');if(chance(.18)&&canAmbush()){say('半路杀出拦路之人！');startFight();}else go();}
 function travel(){const ks=Object.keys(LOC).filter(k=>k!==S.loc&&(k!=="cult"||S.flags.cultMap));
  show(ks.map(k=>["去"+LOC[k].n,()=>goTo(k)]).concat([["算了，留在这里",go]]));}
 function story(){const f=S.flags;
  if(S.loc==="temple"&&!f.monk)return["拜见住持",()=>{f.monk=1;say('住持慧明大师看了玉佩良久，叹道：「你师父是我俗家弟子。血月教主欲集齐七块玉佩，开启前朝宝库。你这半块，便是钥匙之一。」大师传你金刚掌心法，嘱你小心。');meet('慧明大师',{title:'云隐寺住持',sect:'云隐寺',age:'七十余岁',look:'白眉垂颊，身披旧袈裟',pers:'慈悲睿智',lv:'绝顶高手',where:'云隐寺',rel:35,ev:'传授金刚掌诀'});item("金刚掌诀");addClue('血月教主在收集玉佩');go();}];
- if(S.loc==="forest"&&!f.camp)return["循着痕迹深入林中",()=>{say('你在林深处发现一座废弃营地，地上有血月标记，几名教徒正在焚烧信件。');show([["冲上去！",()=>{f.camp=1;startFight(ENEMY[3],()=>{say('你从灰烬中抢出半封信：「……沧浪江水寨……月圆之夜……」');addClue('月圆之夜，沧浪江水寨');go();});}],["潜伏偷听",()=>{f.camp=1;if(chance(.6)){say('你听到他们说护法将在汴京与锦衣卫密会。');addClue('护法与锦衣卫在汴京密会');f.cityLead=1;}else{say('你踩断了一根枯枝！');return startFight(ENEMY[3]);}go();}],["悄悄离开",()=>{say('你决定先保存实力。');go();}]]);}];
+ if(S.loc==="forest"&&!f.camp)return["循着痕迹深入林中",()=>{say('你在林深处发现一座废弃营地，地上有血月标记，几名教徒正在焚烧信件。');show([["冲上去！",()=>{f.camp=1;startFight(ENEMY[3],()=>{say('你从灰烬中抢出半封信：「……沧浪江水寨……月圆之夜……」');item('烧焦的密信');addClue('月圆之夜，沧浪江水寨');go();});}],["潜伏偷听",()=>{f.camp=1;if(chance(.6)){say('你听到他们说护法将在汴京与锦衣卫密会。');addClue('护法与锦衣卫在汴京密会');f.cityLead=1;}else{say('你踩断了一根枯枝！');return startFight(ENEMY[3]);}go();}],["悄悄离开",()=>{say('你决定先保存实力。');go();}]]);}];
  if(S.loc==="river"&&!f.boat&&(f.jade||S.clues>=2))return["向乌篷船夫出示玉佩",()=>{f.boat=1;say('船夫掀开斗笠，竟是一位白发老妪：「沧浪派最后的传人，等你很久了。」她赠你流云剑谱，并告诉你另半块玉佩在血月护法手中。');meet('沧浪老妪',{title:'沧浪派最后的传人',sect:'沧浪派',age:'七十上下',look:'白发如雪，斗笠蓑衣，目光如电',pers:'孤傲而重情',lv:'一流高手',where:'沧浪江渡口',rel:35,ev:'赠流云剑谱'});item("流云剑谱");addClue('另半块玉佩在血月护法手中');go();}];
- if(S.loc==="city"&&!f.palace&&(f.cityLead||S.lv>=4))return["夜探锦衣卫衙门",()=>{f.palace=1;say('你翻墙入院，见千户正与血月护法交换密函。千户察觉，拔刀而来！');meet('锦衣卫千户',{title:'锦衣卫千户·血月内应',sect:'锦衣卫',age:'四十许',look:'飞鱼服，绣春刀，鹰钩鼻',pers:'阴鸷贪婪',lv:'一流好手',rel:-50,ev:'与血月护法勾结，被你撞破'});startFight(Object.assign({named:1},ENEMY[7]),()=>{say('你在千户身上搜到一张血月总坛地图，还有一卷发黄的残卷！');item("太虚残卷");f.cultMap=1;addClue('血月总坛在北山血月峰');S.rep+=10;go();});}];
+ if(S.loc==="city"&&!f.palace&&(f.cityLead||S.lv>=4))return["夜探锦衣卫衙门",()=>{f.palace=1;say('你翻墙入院，见千户正与血月护法交换密函。千户察觉，拔刀而来！');meet('锦衣卫千户',{title:'锦衣卫千户·血月内应',sect:'锦衣卫',age:'四十许',look:'飞鱼服，绣春刀，鹰钩鼻',pers:'阴鸷贪婪',lv:'一流好手',rel:-50,ev:'与血月护法勾结，被你撞破'});startFight(Object.assign({named:1},ENEMY[7]),()=>{say('你在千户身上搜到一张血月总坛地图，还有一卷发黄的残卷！');item("太虚残卷");item('血月总坛地图');f.cultMap=1;addClue('血月总坛在北山血月峰');S.rep+=10;go();});}];
  if(S.loc==="cult"&&!f.boss)return["闯入大殿，直面教主",bossIntro];
  if(S.loc==="town"&&S.clues>=3&&!f.ally)return["回铁匠铺看看",()=>{f.ally=1;say('铁匠铺里，竟有一位女子在等你——她自称是师父的女儿柳青：「我要和你一起报仇。」');meet('柳青',{title:'师父之女',sect:'承父亲武学',age:'二十二岁',look:'眉目清丽，长发以玉簪半挽，一袭淡绿衣裙，腰悬短剑',pers:'倔强果敢，外冷内热',lv:'二流好手',where:'青石镇铁匠铺',rel:20,ev:'在铁匠铺相认'});show([["欣然同行",()=>{f.allyOn=1;note('柳青加入同行');rel('柳青',12,'结伴同行，誓报父仇',{major:1});S.npcs['柳青'].sp='同伴';say('柳青加入了你。战斗中她会助你一臂之力。','sys');go();}],["独自上路更安全",()=>{say('柳青咬唇：「那你保重。」她转身消失在雨巷。');S.karma--;rel('柳青',-15,'被你拒绝同行');S.npcs['柳青'].where='下落不明';go();}]]);}];
  return null;}
 function randomEvent(){
  const evs=[
-  ()=>{say('路边蹿出一伙人，喝道：「此路是我开！」');startFight();},
+  ()=>{if(!canAmbush())return evs[pick([2,3,6,7,8])]();say('路边蹿出一伙人，喝道：「此路是我开！」');startFight();},
   ()=>{const n=pick(NPC);say('路边遇到一位'+n+'，似乎有话要说。');show([["上前搭话",()=>talkNpc(n)],["施舍些银两（5两）",()=>{if(S.gold>=5){S.gold-=5;S.karma++;S.rep+=2;meet(n,Object.assign({},NPCINFO[n]));rel(n,12,'你慷慨解囊',{act:'gift'});say(n+'感激道：「好人有好报。」随后低声告诉你一个秘密。');if(chance(.5))addClue(n+'透露的秘闻');else item("金疮药");}else say('你摸了摸空空的钱袋，尴尬一笑。');go();}],["不理会",go]]);},
   ()=>{const g=R(5,25);say('你在草丛里发现一个破旧包袱，里面有'+g+'两银子。');show([["收下",()=>{S.gold+=g;say('银两 +'+g,'sys');go();}],["等失主回来",()=>{say('一个小孩哭着跑来找包袱，你物归原主。孩子的爷爷是退隐的高手，指点了你几招。');S.karma+=2;gainXp(25);go();}]]);},
   ()=>{say('一只受伤的白鹤落在你面前，翅膀上缠着一张纸条。');show([["救治白鹤",()=>{S.karma++;say('纸条写着：「血月教主惧怕太虚剑意。」白鹤长鸣而去。');S.flags.weak=1;note('得知教主惧怕太虚剑意');go();}],["取下纸条就走",()=>{say('纸条上的字已被血迹模糊。');go();}]]);},
-  ()=>{say('你遇到一处山洞，洞口刻着「入者生死自负」。');show([["进洞",()=>{if(chance(.5)){say('洞中石壁刻着前辈的剑招，你观摩半日，大有所获。');gainXp(30+S.lv*5);}else{const d=R(8,18);hurt(d);say('机关触发，毒箭射来！气血 -'+d,'bad');}go();}],["离开",go]]);},
-  ()=>{say('一名黑衣人与白衣书生激斗，书生已落下风。');show([["助书生",()=>startFight(Object.assign({named:1},ENEMY[4]),()=>{say('书生拱手：「在下是丐帮弟子，此恩必报。」赠你银两与线索。');meet('丐帮书生',{title:'丐帮弟子',sect:'丐帮',age:'二十七八',look:'白衣书生打扮，袖口却打着丐帮补丁',pers:'机敏重义',lv:'二流好手',rel:30,ev:'被你从黑衣人手下救出'});S.gold+=30;addClue('丐帮弟子的情报');S.rep+=5;go();})],["助黑衣人",()=>{S.karma-=2;say('你与黑衣人联手击杀书生。黑衣人抛给你一袋金子：「血月教欢迎你这样的人。」');meet('黑衣使者',{title:'血月教使者',sect:'血月教',look:'黑巾蒙面',pers:'冷漠',lv:'一流好手',rel:20,ev:'与你联手杀了书生'});S.gold+=60;S.flags.dark=(S.flags.dark||0)+1;note('与血月教为伍');go();}],["袖手旁观",go]]);},
+  ()=>{say('你遇到一处山洞，洞口刻着「入者生死自负」。');show([[S.inv['火折子']?'点起火折子进洞':'摸黑进洞',()=>{if(S.inv['火折子']){say('火光照亮了洞壁，你避开地上的机关，在深处发现前辈刻下的剑招，还有一个积灰的木匣。');gainXp(35+S.lv*5);item(pick(['回气丹','白玉簪','银票（五十两）','灵蛇戒','飞镖']));go();return;}if(chance(.5)){say('洞中石壁刻着前辈的剑招，你观摩半日，大有所获。');gainXp(30+S.lv*5);}else{const d=R(8,18);hurt(d);say('漆黑中机关触发，毒箭射来！气血 -'+d+'（有火折子就好了）','bad');}go();}],["离开",go]]);},
+  ()=>{say('一名黑衣人与白衣书生激斗，书生已落下风。');show([["助书生",()=>startFight(Object.assign({named:1},ENEMY[4]),()=>{say('书生拱手：「在下是丐帮弟子，此恩必报。」赠你银两与线索。');meet('丐帮书生',{title:'丐帮弟子',sect:'丐帮',age:'二十七八',look:'白衣书生打扮，袖口却打着丐帮补丁',pers:'机敏重义',lv:'二流好手',rel:30,ev:'被你从黑衣人手下救出'});S.gold+=30;item('丐帮信物');addClue('丐帮弟子的情报');S.rep+=5;go();})],["助黑衣人",()=>{S.karma-=2;say('你与黑衣人联手击杀书生。黑衣人抛给你一袋金子：「血月教欢迎你这样的人。」');meet('黑衣使者',{title:'血月教使者',sect:'血月教',look:'黑巾蒙面',pers:'冷漠',lv:'一流好手',rel:20,ev:'与你联手杀了书生'});S.gold+=60;S.flags.dark=(S.flags.dark||0)+1;note('与血月教为伍');go();}],["袖手旁观",go]]);},
   ()=>{say('一个酒鬼拉住你要比酒。');show([["比就比！",()=>{if(chance(.5+S.lv*.03)){say('你喝趴了酒鬼，他醒来哈哈大笑，竟是丐帮长老，传你内功一段。内力上限 +10');S.mmp+=10;S.mp=S.mmp;}else{say('你醉得不省人事，醒来钱袋少了一半。');S.gold=Math.floor(S.gold/2);}go();}],["婉拒",go]]);},
   ()=>{say('你在溪边采到一株灵芝。');item("灵芝");go();},
-  ()=>{say('天色骤变，暴雨倾盆。你找了个破庙避雨，庙里已有一人烤火……');show([["与他共饮",()=>{say('那人自称「无名」，与你畅谈江湖，临别留下一句：「血月教总坛在北山血月峰。」');addClue('无名客的提点');go();}],["保持警惕",()=>{if(chance(.4)){say('他果然暴起偷袭！');startFight();}else{say('一夜无事，天明他已不见。');go();}}]]);}
+  ()=>{say('天色骤变，暴雨倾盆。你找了个破庙避雨，庙里已有一人烤火……');show([["与他共饮",()=>{say('那人自称「无名」，与你畅谈江湖，临别留下一句：「血月教总坛在北山血月峰。」');addClue('无名客的提点');go();}],["保持警惕",()=>{if(chance(.4)&&canAmbush()){say('他果然暴起偷袭！');startFight();}else{say('一夜无事，天明他已不见。');go();}}]]);}
  ];
  pick(evs)();}
 function talkNpc(n){const lines=["听说血月教主每逢月圆之夜功力最弱。","汴京的锦衣卫和血月教勾结，大人物都靠不住。","沧浪江上的老船娘，可不是一般人。","云隐寺住持年轻时是天下第一掌。","黑松林西边有个山洞，进去的人一半没出来。"];
  const l=pick(lines);say(n+'说：「'+l+'」');if(NPCINFO[n]){const nn=meet(n,Object.assign({},NPCINFO[n]));rel(n,5,'闲谈：'+l.slice(0,12),{act:'chat'});}if(chance(.3))addClue(l.slice(0,10)+'……');gainXp(5);go();}
-function shop(){show([["买金疮药（15两）",()=>{if(S.gold>=15){S.gold-=15;item("金疮药");}else say('银子不够。','bad');shop();}],["买精钢剑（80两）",()=>{if(S.inv['精钢剑'])say('你已有精钢剑。','bad');else if(S.gold>=80){S.gold-=80;S.flags.sword=1;gainGear('精钢剑',null,true);}else say('银子不够。','bad');shop();}],["买皮甲（40两）",()=>{if(S.inv['皮甲'])say('你已有皮甲。','bad');else if(S.gold>=40){S.gold-=40;gainGear('皮甲',null,true);}else say('银子不够。','bad');shop();}],["卖艺赚钱",()=>{const g=R(5,15)+S.lv*2;S.gold+=g;S.day++;say('你当街舞剑，围观者喝彩，得了'+g+'两。');go();}],["离开集市",go]]);}
+function buy(n,price,k){if(S.gold<price){say('银子不够。','bad');return;}S.gold-=price;if(gearOf(n)){if(S.inv[n]){say('你已有'+n+'。','bad');S.gold+=price;return;}gainGear(n,null,true);}else item(n,k||1);}
+function shop(){show([["药铺：金疮药15 · 回气丹20 · 解毒丹20",()=>show([["金疮药（15两）",()=>{buy('金疮药',15);shop();}],["回气丹（20两）",()=>{buy('回气丹',20);shop();}],["解毒丹（20两）",()=>{buy('解毒丹',20);shop();}],["大力丸 / 护体丹（30两）",()=>{buy(chance(.5)?'大力丸':'护体丹',30);shop();}]])],
+ ["杂货：飞镖 · 烟雾弹 · 火折子 · 礼物",()=>show([["飞镖×3（25两）",()=>{buy('飞镖',25,3);shop();}],["烟雾弹（30两）",()=>{buy('烟雾弹',30);shop();}],["火折子（10两）",()=>{buy('火折子',10);shop();}],["女儿红 / 胭脂（20两）",()=>{buy(chance(.5)?'女儿红':'胭脂',20);shop();}]])],
+ ["兵器铺：精钢剑80 · 皮甲40 · 护腕60",()=>show([["精钢剑（80两）",()=>{buy('精钢剑',80);if(S.inv['精钢剑'])S.flags.sword=1;shop();}],["皮甲（40两）",()=>{buy('皮甲',40);shop();}],["铁护腕（60两）",()=>{buy('铁护腕',60);shop();}],["返回",shop]])],
+ ["出售全部杂物",()=>{const ms=Object.keys(S.inv).filter(n=>itemInfo(n).c==='misc');if(!ms.length)say('你没有可卖的杂物。','bad');ms.forEach(n=>sellItem(n,true));shop();}],
+ ["卖艺赚钱",()=>{const g=R(5,15)+S.lv*2;S.gold+=g;S.day++;say('你当街舞剑，围观者喝彩，得了'+g+'两。');go();}],["离开集市",go]]);}
 
 /* ===== 战斗 ===== */
 function scaleEnemy(){const pool=ENEMY.filter(e=>e.lv<=S.lv+1&&e.lv!==7&&e.lv<6);return pick(pool.length?pool:ENEMY);}
 /* 敌人按主角等级成长；named=有名有姓/剧情对手，boss=萧寒 */
 function buildEnemy(e){const named=!!(e.named||e.boss||e.lv>=6||(e.hp||0)>=100);let L=Math.max(e.lv||1,S.lv+(named?1:(chance(.3)?-1:0)));if(e.boss)L=Math.max(L,S.lv+2,10);
  const hf=Math.min(1.5,Math.max(.8,(e.hp||50)/50*.3+.7)),af=Math.min(1.3,Math.max(.85,(e.atk||10)/10*.25+.75));let hp=Math.round((16+15*L+1.7*L*L)*hf);let atk=Math.round((2+3.3*L)*af);let def=Math.floor(L*1.1);
+ if(!named&&S.lv<=3){L=Math.max(1,S.lv-1);const wk=S.lv<=2?.8:.95;hp=Math.round((16+15*L+1.7*L*L)*hf*wk);atk=Math.round((2+3.3*L)*af*wk);def=Math.floor(L*1.1);}
+ if(e.easy){hp=Math.round(hp*.8);atk=Math.max(2,Math.round(atk*.85));}
  if(named){hp=Math.round(hp*1.3);atk=Math.round(atk*1.05);def+=1;}
  if(e.boss){hp=Math.round(310+S.lv*28);atk=Math.round(12+S.lv*1.8);def=Math.round(7+S.lv*.5);}
  if(e.wounded)hp=Math.round(hp*.6);
  const fel=validEl(e.el)||NAMED_EL[e.n]||(named?hashEl(e.n):pick(EL5));
  return {n:e.n,el:fel,hp,mhp:hp,atk,def,lv:L,boss:!!e.boss,named,dodge:e.boss?.12:named?.1:.06,phase:1,pot:0,guard:false,bleed:0};}
-function startFight(e,win){e=e||scaleEnemy();S.fight=buildEnemy(e);S._win=win||null;const f=S.fight;
+/* ===== 同伴助战（无独立气血，只做辅助） ===== */
+function party(){const L=[],ns=S.npcs||{};const bad=o=>o&&/死|亡|离|叛/.test(o.status||'');
+ if(S.flags.allyOn&&!bad(ns['柳青']))L.push('柳青');
+ Object.values(ns).forEach(o=>{if(o.n!=='柳青'&&/同伴/.test(o.sp||'')&&!bad(o)&&!L.includes(o.n))L.push(o.n);});return L.slice(0,2);}
+function buildComps(){return party().map(n=>{const o=(S.npcs||{})[n]||{rel:40};const r=Math.max(0,Math.min(100,o.rel||0));return {n,rel:r,p:.3+r/100*.35,eff:.85+r/100*.3};});}
+function compTurn(){const f=S.fight,cs=(f&&f.comps)||[];const pAtk=S._atk;S._atk=false;if(f.brk>0)f.brk--;
+ for(const c of cs){if(!chance(c.p))continue;
+  if(pAtk&&c.rel>=70&&chance(.25)){const d=Math.max(1,Math.round((R(6,10)+S.lv*3)*c.eff));f.hp-=d;push({k:'r',w:true,t:'合击',d:c.n+'与你心意相通，剑势合一，再伤 '+d+'（剩余 '+Math.max(0,f.hp)+'/'+f.mhp+'）'});if(f.hp<=0)return true;continue;}
+  const opts=['hit','hit','block','status','combo'];if(S.hp<S.mhp*.6)opts.push('heal','heal');const a=pick(opts);
+  if(a==='hit'){const d=Math.max(1,Math.round((R(3,6)+S.lv*1.6)*c.eff-f.def*.5));f.hp-=d;push({k:'r',w:true,t:c.n+'助攻',d:c.n+'从旁补上一招，伤 '+d+'（剩余 '+Math.max(0,f.hp)+'/'+f.mhp+'）'});if(f.hp<=0)return true;}
+  else if(a==='heal'){const h=Math.round((6+S.lv*2)*c.eff);heal(h);push({k:'r',w:true,t:c.n+'援手',d:c.n+'递来伤药、点穴止血，气血 +'+h+'（剩 '+S.hp+'）'});}
+  else if(a==='block'){f.block=c.n;push({k:'r',w:true,t:c.n+'护持',d:c.n+'守在你身侧，准备替你格开下一招'});}
+  else if(a==='status'){if(chance(.5)&&!f.boss){f.seal=1;push({k:'r',w:true,t:c.n+'·封穴',d:c.n+'一指点中'+f.n+'穴道，对方下一招使不出来'});}else{f.brk=2;push({k:'r',w:true,t:c.n+'·破防',d:c.n+'撕开'+f.n+'的守势，两回合内防御尽失'});}}
+  else{S.combo=c.n;push({k:'r',w:true,t:c.n+'牵制',d:c.n+'缠住对手，为你下一招制造破绽（伤害 ×1.4）'});}}
+ return false;}
+/* 遭遇冷却 */
+function canAmbush(cd){const t=S.turn||0,lf=S.lastFight==null?-99:S.lastFight;if(t-lf<(cd||6))return false;if(t<=10&&(S.fights||0)>=1)return false;return true;}
+function startFight(e,win){e=e||scaleEnemy();if(!e.named&&!e.boss&&(S.turn||0)<=10)e=Object.assign({easy:1},e);S.fight=buildEnemy(e);S._win=win||null;const f=S.fight;S.lastFight=S.turn||0;S.fights=(S.fights||0)+1;
+ f.comps=buildComps();if(f.comps.length){const k=1+.15*f.comps.length;f.hp=f.mhp=Math.round(f.mhp*k);say(f.comps.map(c=>c.n).join('、')+'与你并肩迎敌，会伺机助战','sys');}
  say('⚔ 遭遇【'+f.n+'】'+(f.boss?'（宗师）':f.named?'（劲敌）':'')+' · '+f.el+'属 · 气血 '+f.hp+' · 攻 '+f.atk+' · 防 '+f.def,'set');fightMenu();}
 function fightMenu(){const f=S.fight;const sk=mySkills();const c=sk.length>3?[sk[0],sk[sk.length-2],sk[sk.length-1]]:sk.slice();
  const ch=c.map(s=>{const e=skillEl(s),m=elMul(e,f.el);return [s.n+'·'+e+(m>1?'↑':m<1?'↓':'')+(s.mp?'（内力'+s.mp+'）':''),()=>attack(s),1];});
- ch.push(["守势 / 用药 / 逃跑",()=>show([["凝神守御（减伤、回内力）",defend,1],["服金疮药（"+(S.inv['金疮药']||0)+"）",()=>useItem("金疮药",true),1],["服灵芝（"+(S.inv['灵芝']||0)+"）",()=>useItem("灵芝",true),1],["逃跑",flee,1],["返回",fightMenu,1]]),1]);
+ ch.push(["守势 / 道具 / 逃跑",()=>show([["凝神守御（减伤、回内力）",defend,1],["道具（"+combatItems().reduce((a,n)=>a+S.inv[n],0)+"）",itemMenu,1],["逃跑",flee,1],["返回",fightMenu,1]]),1]);
  $('status').textContent='【'+f.n+'·'+f.el+'】气血 '+Math.max(0,f.hp)+'/'+f.mhp+(f.guard?' · 架势防守':'')+(S.fight.bleed?' · 你中毒/流血':'')+' · 用药 '+f.pot+'/2';show(ch);}
 function attack(s){const f=S.fight;if(S.mp<s.mp){say('内力不足！','bad');return fightMenu();}S.mp-=s.mp;S._guard=false;
  if(chance(f.dodge)){push({k:'r',w:false,t:s.n,d:f.n+'身形一晃，避开了你这一招'});return enemyTurn();}
- const ae=skillEl(s),em=elMul(ae,f.el);let d=Math.round(((R(5,9)+atkStat())*s.m-f.def)*em);let m=em>1?'以'+ae+'克'+f.el+'，伤害大增！':em<1?ae+'被'+f.el+'所克，劲力受阻。':'';
- if(SHENG5[ae]===S.el){S.mp=Math.min(S.mmp,S.mp+3);m+=ae+'生'+S.el+'，内力回流 +3。';}if(chance(S.el==='火'?.18:.1)){d=Math.round(d*1.7);m='会心一击！';}
+ const ae=skillEl(s),em=elMul(ae,f.el);let d=Math.round(((R(5,9)+atkStat())*s.m-(f.brk?0:f.def))*em);if(S.combo){d=Math.round(d*1.4);S.combo=null;}let m=em>1?'以'+ae+'克'+f.el+'，伤害大增！':em<1?ae+'被'+f.el+'所克，劲力受阻。':'';
+ if(SHENG5[ae]===S.el){S.mp=Math.min(S.mmp,S.mp+3);m+=ae+'生'+S.el+'，内力回流 +3。';}if(chance((S.el==='火'?.18:.1)+accSum('crit'))){d=Math.round(d*1.7);m+='会心一击！';}
  if(f.guard){d=Math.round(d*.5);m+='对方架势严密，劲力被卸去一半。';f.guard=false;}
  if(f.boss&&s.n==="太虚剑意"&&S.flags.weak){d=Math.round(d*1.5);m+='正中破绽！';}
- d=Math.max(1,d);f.hp-=d;let t='你使出'+s.n+'，造成 '+d+' 点伤害';const left=()=>'（剩余 '+Math.max(0,f.hp)+'/'+f.mhp+'）';
- if(S.flags.allyOn&&f.hp>0&&chance(.6)){const a=Math.max(1,R(3,6)+S.lv-Math.floor(f.def/2));f.hp-=a;t+='；柳青补上一剑，再伤 '+a;}t+=left();
+ d=Math.max(1,d);f.hp-=d;S._atk=true;let t='你使出'+s.n+'，造成 '+d+' 点伤害';const left=()=>'（剩余 '+Math.max(0,f.hp)+'/'+f.mhp+'）';
+ t+=left();
  push({k:'r',w:true,t:s.n,m,d:t});
  if(f.hp<=0)return winFight();phaseCheck();enemyTurn();}
 function phaseCheck(){const f=S.fight;if(!f||!(f.named||f.boss))return;
  if(f.phase===1&&f.hp<f.mhp*.5){f.phase=2;f.atk=Math.round(f.atk*1.25);f.dodge+=.04;push({k:'t',t:f.boss?'萧寒长啸一声，血月魔功催至第九重，掌风骤然凌厉！':f.n+'被激起凶性，出手更狠了！'});}
  if(f.boss&&f.phase===2&&f.hp<f.mhp*.2){f.phase=3;const h=Math.round(f.mhp*.12);f.hp+=h;push({k:'t',t:'萧寒咬破舌尖，以血祭功，气血回复 '+h+'——这是最后的疯狂！'});}}
 function defend(){S._guard=true;S.mp=Math.min(S.mmp,S.mp+8);push({k:'r',w:true,t:'凝神守御',d:'你沉肩坠肘，护住周身要害（本回合受伤减半，内力 +8）'});enemyTurn();}
-function enemyTurn(){const f=S.fight;let note='';
+function enemyTurn(){const f=S.fight;let note='';if(compTurn())return winFight();if(f.seal){f.seal=0;push({k:'r',w:true,t:'穴道受制',d:f.n+'穴道被封，这一回合动弹不得'});S._guard=false;return fightMenu();}
  if(f.bleed>0){const b=Math.max(2,Math.round(S.mhp*.04));hurt(b);f.bleed--;push({k:'r',w:false,t:'毒伤发作',d:'气血 -'+b+'（剩 '+S.hp+'）'});if(S.hp<=0){S._lastFoe=(S.fight&&(S.fight.named||S.fight.boss))?'n':'c';S.fight=null;S._guard=false;return death();}}
  const r=Math.random();let mult=1,name=f.n+'出手';
  if(r<.1){f.guard=true;push({k:'r',w:false,t:f.n+'摆出守势',d:'下一招你的伤害减半'});S._guard=false;return fightMenu();}
  if(r<.22){mult=1.5;name=f.n+'蓄力重击';}else if(r<.37&&!f.bleed){f.bleed=3;mult=.8;name=f.n+(f.boss?'血月掌·蚀骨':pick(['淬毒暗器','阴狠一刀']));note='，你中了毒伤（3 回合）';}
- if(chance(.08+(S.el==='水'?.04:0))){push({k:'r',w:true,t:'闪避',d:f.n+'一招落空'});S._guard=false;return fightMenu();}
+ if(chance(.08+(S.el==='水'?.04:0)+accSum('dodge'))){push({k:'r',w:true,t:'闪避',d:f.n+'一招落空'});S._guard=false;return fightMenu();}
  const raw=Math.round(R(Math.ceil(f.atk*.75),f.atk)*mult);const em=elMul(f.el,S.el),ar=armorEl(),am=ar?(KE[ar]===f.el?.85:KE[f.el]===ar?1.15:1):1;let d=Math.max(1,Math.round((raw-defStat())*em*am));
- if(em>1)note+='（'+f.el+'克'+S.el+'，你吃了大亏）';else if(em<1)note+='（'+S.el+'克'+f.el+'，你稳稳接下）';if(am<1)note+='（'+ar+'甲克'+f.el+'，减伤）';else if(am>1)note+='（'+f.el+'克'+ar+'甲，破防）';if(S._guard)d=Math.max(1,Math.round(d*.5));S._guard=false;hurt(d);
+ if(em>1)note+='（'+f.el+'克'+S.el+'，你吃了大亏）';else if(em<1)note+='（'+S.el+'克'+f.el+'，你稳稳接下）';if(am<1)note+='（'+ar+'甲克'+f.el+'，减伤）';else if(am>1)note+='（'+f.el+'克'+ar+'甲，破防）';if(S._guard)d=Math.max(1,Math.round(d*.5));if(f.block){d=Math.max(1,Math.round(d*.5));note+='（'+f.block+'替你格开大半）';f.block=null;}S._guard=false;hurt(d);
  push({k:'r',w:false,t:name,d:'气血 -'+d+note+'（剩 '+S.hp+'）'});
  if(S.hp<=0){S._lastFoe=(S.fight&&(S.fight.named||S.fight.boss))?'n':'c';S.fight=null;return death();}fightMenu();}
 function winFight(){const f=S.fight;S.fight=null;$('status').textContent='点上面的选项，或写下你的行动';const g=R(5,15)*f.lv;S.gold+=g;
- push({k:'t',t:'【'+f.n+'】倒下了 · 银两 +'+g});if(chance(.3))item(pick(["金疮药","金疮药","灵芝"]));if(chance(f.boss?0:f.named?.3:.1)){const gn=lootGear(f.lv);gainGear(gn,null,true);}gainXp(15*f.lv+10);S.rep+=f.lv;
- S._guard=false;{const h=Math.round(S.mhp*.25);if(S.hp<S.mhp){heal(h);S.mp=Math.min(S.mmp,S.mp+Math.round(S.mmp*.3));say('战后调息片刻，气血 +'+h,'sys');}}const w=S._win;S._win=null;if(w)return w();if(f.boss)return end('hero');go();}
-function flee(){if(S.fight.boss){say('教主冷笑：「今日你走不了！」');return enemyTurn();}if(chance(S.fight.named?.3:.5)){say('你虚晃一招，抽身遁走。');S.fight=null;S._win=null;$('status').textContent='点上面的选项，或写下你的行动';go();}else{say('逃跑失败！','bad');enemyTurn();}}
-function useItem(n,inFight){if(!S.inv[n]){say('你没有'+n+'。','bad');return inFight?fightMenu():go();}if(inFight&&S.fight.pot>=2){say('这一战已服过两次药，药力再难化开。','bad');return fightMenu();}if(inFight)S.fight.pot++;item(n,-1);
- if(n==="金疮药"){const h=Math.round(25+S.mhp*.15);heal(h);say('伤口止血，气血 +'+h,'sys');}else if(n==="灵芝"){const h=Math.round(S.mhp*.6);heal(h);S.mp=Math.min(S.mmp,S.mp+Math.round(S.mmp*.6));say('灵气入体，气血 +'+h+'，内力大振','sys');}
- if(inFight)return enemyTurn();go();}
+ push({k:'t',t:'【'+f.n+'】倒下了 · 银两 +'+g});if(chance(.3))item(pick(["金疮药","金疮药","回气丹","解毒丹","灵芝","飞镖"]));if(chance(.35))item(/狼/.test(f.n)?'狼皮':/山贼/.test(f.n)?'山贼腰牌':/血月/.test(f.n)&&chance(.4)?'血月令牌':pick(['旧铜钱','破碎的刀刃','旧铜钱']));if(chance(.06))item(chance(.7)?'银票（五十两）':'银票（百两）');if(chance(f.boss?0:f.named?.3:.1)){const gn=lootGear(f.lv);gainGear(gn,null,true);}gainXp(15*f.lv+10);S.rep+=f.lv;
+ S._guard=false;S.buff=null;S.combo=null;{const h=Math.round(S.mhp*.25);if(S.hp<S.mhp){heal(h);S.mp=Math.min(S.mmp,S.mp+Math.round(S.mmp*.3));say('战后调息片刻，气血 +'+h,'sys');}}const w=S._win;S._win=null;if(w)return w();if(f.boss)return end('hero');go();}
+function flee(){if(S.fight.boss){say('教主冷笑：「今日你走不了！」');return enemyTurn();}if(chance(S.fight.named?.3:.5)){say('你虚晃一招，抽身遁走。');S.fight=null;S.buff=null;S._win=null;$('status').textContent='点上面的选项，或写下你的行动';go();}else{say('逃跑失败！','bad');enemyTurn();}}
 
 /* ===== 结局 ===== */
 function bossIntro(){say('血月教主缓缓摘下面具——竟是你师父的师兄，当年被逐出师门的萧寒！');if(S.npcs){meet('萧寒',{title:'血月教主',sect:'血月教',age:'五十余岁',look:'面容清癯，鬓角斑白，眼神阴冷',pers:'城府极深，野心勃勃',lv:'绝顶高手',where:'血月教总坛',rel:-90,ev:'摘下面具，承认杀害师父'});if(S.npcs['血色面具人'])S.npcs['血色面具人'].status='真身即萧寒';}say('「你师父不肯交出玉佩，只好让他死。你若投我，宝库与天下共享。」');
@@ -704,7 +840,7 @@ const KW=[
  [/喝酒|酒/,()=>{if(S.gold>=3){S.gold-=3;heal(10);say('一壶烧刀子下肚，豪气顿生。');if(chance(.3))addClue('醉汉说漏了嘴');}else say('你没钱买酒。');}],
  [/偷|抢|劫/,()=>{S.karma-=2;if(chance(.5)){const g=R(10,40);S.gold+=g;say('你得手了，'+g+'两。');}else{say('被人当场抓住！');return 'f';}}],
  [/打|杀|攻击|挑战|比武/,()=>'f'],
- [/药|治疗|疗伤/,()=>{useItem(S.inv["金疮药"]?"金疮药":"灵芝",false);return 'x';}],
+ [/药|治疗|疗伤/,()=>{const d=Object.keys(S.inv).find(n=>itemInfo(n).c==='drug'&&itemInfo(n).hp);useItem(d||'金疮药',false);return 'x';}],
  [/睡|休息/,()=>{heal(25+(S.el==='木'?10:0));S.day++;say('你找了个僻静处睡了一觉。');}],
  [/离开|走|去|前往/,()=>{travel();return 'x';}],
  [/帮|救|助/,()=>{S.karma++;S.rep+=3;say('你出手相助一位遇难的路人，赢得了好名声。');gainXp(10);}],
@@ -715,7 +851,7 @@ const ta=$('act');
 function autosize(){ta.style.height='auto';ta.style.height=Math.min(120,ta.scrollHeight)+'px';}
 function freeAct(){if(AI.busy){AI.ctl&&AI.ctl.abort();return;}const t=ta.value.trim();if(!t||!S||S.over)return;ta.value='';autosize();closeAll();say('▸ '+t,'you');
  if(S.fight){say('生死相搏之际，只能出招！','bad');return fightMenu();}
- S.steps++;if(aiOn())return aiTurn(t,()=>offlineFree(t));offlineFree(t);}
+ S.steps++;S.turn=(S.turn||0)+1;if(aiOn())return aiTurn(t,()=>offlineFree(t));offlineFree(t);}
 function offlineFree(t){S._skip=1;
  for(const [re,fn] of KW)if(re.test(t)){const r=fn();if(r==='f')return startFight();if(r==='x')return;return go();}
  say(pick(['你'+t+'，但似乎什么也没发生。远处传来一声鸦啼。','你试着'+t+'，路人投来奇怪的目光。','你'+t+'了一阵，心中若有所悟。']));if(chance(.3))gainXp(3);go();}
@@ -767,15 +903,16 @@ function sysPrompt(){return `你是一位武侠说书人，正在主持一场名
 2. 顺着玩家的行动写结果，不要替玩家做重大决定；玩家行动荒唐也要合理圆回来。行动有风险时要有代价，不能事事如意。
 3. 正文结尾留一个悬念或抉择点。不要在正文里写数值、不要提"游戏""JSON"。
 4. 根据主角等级安排对手强弱；主线线索要慢慢给，集齐 5 条线索且等级足够后，才让主角找到总坛、面对萧寒。
-5. 需要真正交手时，用 fight 字段发起战斗（游戏会用回合制战斗系统结算），正文只写到双方拔刀对峙为止，不要写出胜负。
+5. 战斗只是偶尔发生：开局前十回合以剧情、人物、探索为主，最多一场轻松的小冲突；两场战斗之间至少隔五六回合，过密的 fight 会被游戏忽略。多写对话、抉择、奇遇。需要真正交手时，用 fight 字段发起战斗（游戏会用回合制战斗系统结算），正文只写到双方拔刀对峙为止，不要写出胜负。
+【同伴】人物 special 写「同伴」即入队（最多 2 名），同伴会在回合制战斗中伺机助攻、疗伤、格挡、封穴或与主角合击；正文可描写同伴的配合。
 6. 只有主角真正走到故事终点（手刃萧寒、投靠血月教、归隐等）才给 ending。
 【输出格式】先写正文；正文后单独一行写【状态】，下一行写一行 JSON（不要代码块），字段如下，没有变化的字段可省略：
-{"choices":["3~4 个接下来的行动选项，每个不超过 14 字"],"hp":气血增减整数,"qi":内力增减整数,"xp":修为增加整数(0~80),"silver":银两增减整数,"gain":["获得的物品"],"lose":["失去的物品"],"skill":"新学会的武功名或空","skill_element":"该武功的五行（金/木/水/火/土）","place":"主角现在所在地名","clue":"新得到的主线线索一句话或空","note":"值得记入日志的事一句话或空","fight":{"enemy":"对手名","hp":对手气血,"atk":对手攻击力,"element":"对手五行（金/木/水/火/土）","boss":false} 或 null,"ending":{"title":"四字结局名","text":"结局尾声 60~120 字"} 或 null,"npcs":[{"name":"人物名","title":"身份","sect":"门派","age":"年纪","look":"相貌（中文）","personality":"性情","level":"武功高低","rel":本回合好感变化整数，平常 -8~8，只有救命、背叛、表白、结义这类大事才可到 ±15 并同时写 "major":true,"special":"特殊关系如师徒/同伴/知己(需好感≥50)/恋人(≥65)/结义(≥70)/生死之交(≥85)，且必须有相应剧情事件，否则省略","status":"在世/已故/受伤等","where":"所在","event":"本回合与主角之间发生的事一句话"}] 本回合登场或关系有变的人物，最多 4 个，已登记过的人物只写变化的字段,"gear":[{"name":"装备名","type":"weapon/armor/accessory","atk":攻击加成(一般1~5,最多10),"def":防御加成(一般1~5,最多10),"element":"装备五行（金/木/水/火/土）"}] 本回合获得的兵器护甲饰品（不要同时写进 gain）,"img":"用英文写的本回合画面描述，40~70 词，只写场景、人物动作、表情、光线、构图，不写画风，主角用 the hero 指代","image_type":"本回合正文重点在描写某个人物（外貌、神态、登场亮相、对话特写）时填 character，否则（风景、打斗全景、环境）填 scene","character":"image_type 为 character 时，用英文写这个人物的外貌：性别、大致年龄（必须是成年人）、发型、五官气质、服饰颜色与款式，20~40 词；是主角就写 the hero"}
+{"choices":["3~4 个接下来的行动选项，每个不超过 14 字"],"hp":气血增减整数,"qi":内力增减整数,"xp":修为增加整数(0~80),"silver":银两增减整数,"gain":[{"name":"物品名","category":"drug(药物)/tool(道具)/quest(任务物品)/misc(杂物)","desc":"一句描述","hp":回复气血(0~80),"mp":回复内力(0~60),"cure":是否解毒,"dmg":暗器伤害(0~40),"gift":可赠送时的好感值(0~15),"silver":银票面额(0~200),"book":"若是秘籍写可习得的武功名"}]（兵器护甲饰品写在 gear 里）,"lose":["失去的物品"],"skill":"新学会的武功名或空","skill_element":"该武功的五行（金/木/水/火/土）","place":"主角现在所在地名","clue":"新得到的主线线索一句话或空","note":"值得记入日志的事一句话或空","fight":{"enemy":"对手名","hp":对手气血,"atk":对手攻击力,"element":"对手五行（金/木/水/火/土）","boss":false} 或 null,"ending":{"title":"四字结局名","text":"结局尾声 60~120 字"} 或 null,"npcs":[{"name":"人物名","title":"身份","sect":"门派","age":"年纪","look":"相貌（中文）","personality":"性情","level":"武功高低","rel":本回合好感变化整数，平常 -8~8，只有救命、背叛、表白、结义这类大事才可到 ±15 并同时写 "major":true,"special":"特殊关系如师徒/同伴/知己(需好感≥50)/恋人(≥65)/结义(≥70)/生死之交(≥85)，且必须有相应剧情事件，否则省略","status":"在世/已故/受伤等","where":"所在","event":"本回合与主角之间发生的事一句话"}] 本回合登场或关系有变的人物，最多 4 个，已登记过的人物只写变化的字段,"gear":[{"name":"装备名","type":"weapon/armor/accessory","atk":攻击加成(一般1~5,最多10),"def":防御加成(一般1~5,最多10),"element":"装备五行（金/木/水/火/土）"}] 本回合获得的兵器护甲饰品（不要同时写进 gain）,"img":"用英文写的本回合画面描述，40~70 词，只写场景、人物动作、表情、光线、构图，不写画风，主角用 the hero 指代","image_type":"本回合正文重点在描写某个人物（外貌、神态、登场亮相、对话特写）时填 character，否则（风景、打斗全景、环境）填 scene","character":"image_type 为 character 时，用英文写这个人物的外貌：性别、大致年龄（必须是成年人）、发型、五官气质、服饰颜色与款式，20~40 词；是主角就写 the hero"}
 参考数值：游戏会按主角等级自动调整对手强度，你只需给出相对强弱（小喽啰气血 30~60、攻击 6~10；高手 100~150、攻击 14~20；萧寒标 boss:true）。一回合 hp 增减一般在 -25~+30 之间。
 【五行】战斗按五行相克结算：金克木、木克土、土克水、水克火、火克金；每个对手、武功、兵器、护甲都有五行，请在 fight/skill/gear 里写明，并在正文里偶尔点出相克之理（如以水克火）。
 【平衡】人物关系要慢慢培养：寒暄、送礼只加一两点，同样的举动反复做不再加；信任要靠共同经历的大事。战斗要有挑战性：对手会反击、会用毒、会防守，主角受伤是常态，不要让主角轻松碾压；兵器护甲要少给，几回合才偶尔给一件，加成多为 1~5，神兵利器极为罕见。`;}
 function aiState(){const f=S.flags;return {姓名:S.name,五行根骨:S.el,等级:S.lv,修为:S.xp+'/'+need(),气血:S.hp+'/'+S.mhp,内力:S.mp+'/'+S.mmp,银两:S.gold,侠名:S.rep,善恶:S.karma,地点:S.place||LOC[S.loc].n,第几日:S.day,
- 行囊:Object.entries(S.inv).map(([k,v])=>k+'×'+v),武功:mySkills().map(s=>s.n),装备:Object.keys(SLOTN).map(k=>SLOTN[k]+':'+(S.eq[k]?S.eq[k]+'('+(gearOf(S.eq[k]).el||'无属')+')':'无')),武功五行:mySkills().map(s=>s.n+':'+skillEl(s)),攻击:atkStat(),防御:defStat(),人物关系:npcList().map(n=>n.n+'('+(n.title||'')+'·'+(n.sp?n.sp+'·':'')+relLabel(n.rel)+n.rel+'·'+(n.status||'在世')+')'),同伴:f.allyOn?['柳青（师父之女）']:[],
+ 行囊:Object.entries(S.inv).map(([k,v])=>k+'×'+v+'('+CATN[itemInfo(k).c]+')'),武功:mySkills().map(s=>s.n),装备:Object.keys(SLOTN).map(k=>SLOTN[k]+':'+(S.eq[k]?S.eq[k]+'('+(gearOf(S.eq[k]).el||'无属')+')':'无')),武功五行:mySkills().map(s=>s.n+':'+skillEl(s)),攻击:atkStat(),防御:defStat(),人物关系:npcList().map(n=>n.n+'('+(n.title||'')+'·'+(n.sp?n.sp+'·':'')+relLabel(n.rel)+n.rel+'·'+(n.status||'在世')+')'),同伴:f.allyOn?['柳青（师父之女）']:[],
  主线线索数:Math.min(S.clues,5)+'/5',主线进度:{拜见云隐寺住持:!!f.monk,查探黑松林营地:!!f.camp,寻访沧浪江船夫:!!f.boat,夜探锦衣卫:!!f.palace,得到总坛地图:!!f.cultMap,已与教主决战:!!f.boss},已知教主弱点:!!f.weak,日志:S.notes.slice(0,12)};}
 function aiMessages(text){const recent=S.log.slice(-14).filter(e=>e.k==='n'||e.k==='p').map(e=>(e.k==='p'?'【玩家】':'')+e.t).join('\n').slice(-1800);
  const msgs=[{role:'system',content:sysPrompt()},{role:'user',content:'【近况】\n'+recent+'\n\n【当前状态】\n'+JSON.stringify(aiState())}];
@@ -827,12 +964,18 @@ function applyAI(j){
  if(hp){S.hp=Math.max(0,Math.min(S.mhp,S.hp+hp));say((hp>0?'气血 +':'气血 ')+hp,hp>0?'sys':'bad');}
  if(qi){S.mp=Math.max(0,Math.min(S.mmp,S.mp+qi));say((qi>0?'内力 +':'内力 ')+qi,qi>0?'sys':'bad');}
  if(ag){S.gold=Math.max(0,S.gold+ag);say((ag>0?'银两 +':'银两 ')+ag,ag>0?'sys':'bad');}
- strs(j.gain,5,12).forEach(n=>item(n));
+ (Array.isArray(j.gain)?j.gain:[]).slice(0,4).forEach(g=>{if(typeof g==='string'){const n=str(g,12);if(n)item(n);return;}if(!g||typeof g!=='object')return;const n=str(g.name,12);if(!n)return;
+  if(!ITEMS[n]&&!gearOf(n)){const base=inferItem(n);const c=['drug','tool','quest','misc'].includes(g.category)?g.category:base.c;const d={c,d:str(g.desc,60)||base.d,p:base.p};
+   const hp=int(g.hp,0,80),mp=int(g.mp,0,60),dmg=int(g.dmg,0,40),gift=int(g.gift,0,15),sil=int(g.silver,0,200),book=str(g.book,10);
+   if(c==='drug'){d.hp=hp||base.hp||0;if(mp)d.mp=mp;if(g.cure)d.cure=1;}
+   if(c==='tool'){if(dmg||base.dmg){d.dmg=1;d.combat=1;}if(gift||base.gift)d.gift=gift||base.gift;if(sil||base.silver)d.silver=sil||base.silver;if(book||base.book)d.book=book||base.book;if(base.flee){d.flee=1;d.combat=1;}if(base.light)d.light=1;if(base.token)d.token=[S.loc];}
+   S.itemDef=S.itemDef||{};S.itemDef[n]=d;}
+  item(n);});
  (Array.isArray(j.gear)?j.gear:[]).slice(0,1).forEach(g=>{if(!g||typeof g!=='object')return;const n=str(g.name,12);if(!n)return;const t={weapon:'weapon',armor:'armor',accessory:'acc',acc:'acc'}[g.type]||'weapon';
   gainGear(n,{t,atk:int(g.atk,0,10),def:int(g.def,0,10),el:validEl(g.element)||hashEl(n)},true);});
  (Array.isArray(j.npcs)?j.npcs:[]).slice(0,4).forEach(x=>{if(!x||typeof x!=='object')return;const n=str(x.name,10);if(!n||n===S.name)return;
   const ev=str(x.event,40),major=x.major===true;let sp=str(x.special,6);const ex=S.npcs&&S.npcs[n];
-  if(sp&&ex&&!spOk(ex,sp,ev)&&ex.sp!==sp){sp='';}if(sp&&!ex&&SP_NEED[sp])sp='';
+  if(sp&&ex&&!spOk(ex,sp,ev)&&ex.sp!==sp){sp='';}if(sp&&!ex&&SP_NEED[sp])sp='';if(/同伴/.test(sp)&&!party().includes(n)&&party().length>=2){sp='';say('队伍已满（最多 2 名同伴），'+n+'未能同行。','sys');}
   meet(n,{title:str(x.title,20),sect:str(x.sect,12),age:str(x.age,10),look:str(x.look,80),pers:str(x.personality,40),lv:str(x.level,10),sp,status:str(x.status,16),where:str(x.where,16)});
   const d=major?int(x.rel,-15,15):int(x.rel,-8,8);if(d)rel(n,d,ev,{raw:1});else if(ev){const o=S.npcs[n];o.ev.push('第'+S.day+'日 '+ev);if(o.ev.length>12)o.ev=o.ev.slice(-12);}});
  strs(j.lose,5,12).forEach(n=>{if(S.inv[n]){item(n,-1);say('失去【'+n+'】','bad');}});
@@ -848,9 +991,9 @@ function applyAI(j){
  if(j.ending&&typeof j.ending==='object'&&(str(j.ending.title,8)||str(j.ending.text,300))){S.over=true;S.fight=null;const t=str(j.ending.title,8)||'江湖落幕';note('结局：'+t);
   push({k:'e',t,d:str(j.ending.text,300)+'\n\n共历 '+S.day+' 日 · 等级 '+S.lv+' · 侠名 '+S.rep+' · 善恶 '+S.karma});$('status').textContent='故事结束';return show([]);}
  if(S.hp<=0)return death();
- if(j.fight&&typeof j.fight==='object'&&str(j.fight.enemy,12)){const F=j.fight;const boss=!!F.boss||/萧寒|教主/.test(F.enemy);
+ if(j.fight&&typeof j.fight==='object'&&str(j.fight.enemy,12)){const F=j.fight;const boss=!!F.boss||/萧寒|教主/.test(F.enemy);if(!boss&&!canAmbush(5)){say('（一场冲突险些爆发，终究没有动起手来。）','sys');}else{
   const e={n:str(F.enemy,12),hp:int(F.hp||40,15,boss?320:200),atk:int(F.atk||8,3,boss?28:22),lv:Math.max(1,Math.min(10,Math.round(int(F.atk||8,3,28)/2.5))),boss,el:validEl(F.element)};if(boss)S.flags.boss=1;
-  return startFight(e,()=>{if(aiOn())aiTurn('（战斗结束：我击败了'+e.n+'，气血还剩 '+S.hp+'）'+(boss?'——萧寒已败，请写出结局并给 ending。':'请接着写战后的情形。'),()=>{if(boss)end('hero');else go();});else if(boss)end('hero');else go();});}
+  return startFight(e,()=>{if(aiOn())aiTurn('（战斗结束：我击败了'+e.n+'，气血还剩 '+S.hp+'）'+(boss?'——萧寒已败，请写出结局并给 ending。':'请接着写战后的情形。'),()=>{if(boss)end('hero');else go();});else if(boss)end('hero');else go();});}}
  show(opts);}
 
 
