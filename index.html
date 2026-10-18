@@ -267,6 +267,16 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
 .elb{display:inline-grid;place-items:center;width:22px;height:22px;font-family:var(--brush);font-size:16px;color:var(--ec);border:1px solid var(--ec);margin-left:6px;vertical-align:2px}
 .cyc{display:grid;gap:4px;color:var(--dim);line-height:1.6}
 .cyc b{color:var(--ink);font-weight:500}
+.moves{display:grid;gap:4px}.moves .mh{font-family:var(--sans);font-size:12px;color:var(--dim)}
+.moves .ml{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px 6px 2px 0;-webkit-overflow-scrolling:touch}.moves .ml::-webkit-scrollbar{display:none}
+.mv{position:relative;flex:0 0 auto;display:grid;gap:1px;text-align:left;background:transparent;border:1px solid var(--cinnabar);padding:5px 10px;cursor:pointer;min-width:100px;color:var(--ink)}
+.mv strong{font-weight:600;font-size:14px}.mv span{font-family:var(--sans);font-size:11px;color:var(--dim);white-space:nowrap}
+.mv.combo{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}.mv:disabled{opacity:.4;cursor:default}.mv.on{background:color-mix(in srgb,var(--cinnabar) 18%,transparent);border-color:var(--gold)}
+.mv .mvn{position:absolute;top:-7px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#1b1712;font:700 11px/18px var(--sans);text-align:center;font-style:normal}
+.duel{align-self:center;border:1px solid var(--line);padding:8px 12px;font-family:var(--sans);font-size:12px;display:grid;gap:4px;min-width:min(100%,300px)}
+.duel.win{border-color:var(--jade)}.duel.lose{border-color:var(--cinnabar)}.duel strong{font-size:14px;font-weight:600}.duel.win strong{color:var(--jade)}.duel.lose strong{color:var(--cinnabar)}
+.duel .dm{display:flex;flex-wrap:wrap;gap:4px}.duel .dm span{border:1px solid var(--line);padding:0 5px;color:var(--dim)}.duel .dm .pos{color:var(--jade)}.duel .dm .neg{color:var(--cinnabar)}
+.duel .dr{font-variant-numeric:tabular-nums;font-size:13px}.duel em{font-style:normal;color:var(--dim)}
 .roll em{font-style:normal;font-size:12px;color:var(--dim);text-align:center;max-width:28em}
 .big{background:var(--cinnabar);color:#fff;border:0;padding:12px;font-family:var(--brush);font-size:30px;letter-spacing:.2em;cursor:pointer}
 .ghost{background:transparent;border:1px solid var(--line);padding:10px;font-size:15px;cursor:pointer}
@@ -335,6 +345,7 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
   <main id="log" aria-live="polite"></main>
   <footer>
     <div id="foe" hidden aria-live="polite"></div>
+    <div class="moves" id="moves" hidden></div>
     <div class="chips" id="chips"></div>
     <div class="row">
       <textarea id="act" rows="1" placeholder="你想做什么？比如：打坐 / 偷听 / 找人打听消息"></textarea>
@@ -432,6 +443,7 @@ function entry(e){const d=document.createElement('div');
   else if(e.k==='l'){d.className='loot';d.textContent=e.t;}
   else if(e.k==='t'){d.className='settle';d.textContent=e.t;}
   else if(e.k==='r'){d.className='roll'+(e.w?' win':' lose');d.append(el('strong',null,e.t));if(e.m)d.append(el('em',null,e.m));d.append(el('span',null,e.d||''));}
+  else if(e.k==='d'){d.className='duel'+(e.w?' win':' lose');d.append(el('strong',null,e.t));if(e.mv)d.append(el('em',null,'出招：'+e.mv));const m=el('div','dm');(e.mods||[]).forEach(([l,v],i)=>m.append(el('span',i?(v>0?'pos':'neg'):null,l+(i?(v>0?' +':' ')+v:' '+v))));d.append(m);d.append(el('div','dr','胜算 '+e.odds+'%　掷出 '+e.roll+'　→ '+e.t.split('】')[1]));d.append(el('div',null,e.res||''));if(e.nt)d.append(el('em',null,e.nt));}
   else if(e.k==='e'){d.className='ending';const b=el('button','ghost','再闯一回');b.onclick=()=>{$('menu').hidden=false;renderSlots();};d.append(el('h3',null,e.t),el('p',null,e.d||''),b);}
   $('log').append(d);return d;}
 function push(e){S.log.push(e);if(S.log.length>120)S.log.shift();entry(e);const L=$('log');while(L.children.length>120)L.firstChild.remove();scroll();}
@@ -455,15 +467,15 @@ function foeCard(){const c=$('foe');if(!c)return;const f=S&&S.fight;if(!f||S.ove
  const st=el('div','fst');if(r<.25)st.append(el('span','low','残血'));if(f.guard)st.append(el('span','gd','守御'));if(f.bleed)st.append(el('span','px','你中毒（'+f.bleed+'）'));if(S._guard)st.append(el('span','gd','你在守御'));
  const sk=mySkills().map(s=>skillEl(s));if(sk.some(x=>KE[x]===f.el))st.append(el('span',null,'怕'+Object.keys(KE).find(k=>KE[k]===f.el)+'属'));
  if(st.childNodes.length)c.append(st);if(f.comps&&f.comps.length)c.append(el('div','fhp','助战：'+f.comps.map(m=>m.n+(m.rel>=70?'（可合击）':'')).join('、')));if(f.seal||f.brk){const x=el('div','fst');if(f.seal)x.append(el('span','gd','封穴'));if(f.brk)x.append(el('span','low','破防'));c.append(x);}}
-function ui(){foeCard();$('lv').textContent=S.lv;$('nm').textContent=S.name;$('elb').textContent=S.el;$('elb').style.setProperty('--ec',ELS[S.el].c);
+function ui(){foeCard();if(!S||!S.fight){const mb=$('moves');if(mb)mb.hidden=true;}$('lv').textContent=S.lv;$('nm').textContent=S.name;$('elb').textContent=S.el;$('elb').style.setProperty('--ec',ELS[S.el].c);
  $('where').textContent=(S.place||LOC[S.loc].n)+' · 第'+S.day+'日';$('aN').textContent=aiOn()?'开':'关';
  $('hp').textContent=S.hp+'/'+S.mhp;$('qi').textContent=S.mp+'/'+S.mmp;$('xp').textContent=S.xp+'/'+need();
  $('hpB').style.width=(S.hp/S.mhp*100)+'%';$('qiB').style.width=(S.mp/S.mmp*100)+'%';$('xpB').style.width=(S.xp/need()*100)+'%';
  $('qN').textContent=Math.min(S.clues,5);$('mN').textContent=S.seen.length;$('kN').textContent=mySkills().length;
  $('iN').textContent=Object.values(S.inv).reduce((a,b)=>a+b,0);$('jN').textContent=S.notes.length;$('rN').textContent=npcList().length;
- const pt=$('party'),pa=party();pt.hidden=!pa.length;pt.textContent='';if(pa.length){pt.append('同行：');pa.forEach(n=>pt.append(el('button',null,n)));}
+ const pt=$('party'),pa=party();pt.hidden=!pa.length;pt.textContent='';if(pa.length){pt.append('队伍 '+pa.length+'/5：');pa.forEach(n=>pt.append(el('button',null,n)));}
  renderPanels();}
-const mySkills=()=>SKILLS.filter(s=>!s.need||(S.learned||[]).includes(s.n)).concat((S.xsk||[]).map(n=>({n,mp:10,m:1.5,d:'奇遇',el:(S.xskEl&&S.xskEl[n])||hashEl(n)})));
+const mySkills=()=>SKILLS.filter(s=>!s.need||(S.learned||[]).includes(s.n)).concat([...new Set((S.xsk||[]).concat((S.learned||[]).filter(n=>!SKILLS.some(s=>s.n===n))))].map(n=>({n,mp:10,m:1.5,d:'奇遇',el:(S.xskEl&&S.xskEl[n])||hashEl(n)})));
 const skillEl=s=>s.el||weaponEl();
 function group(title,list,cls,empty){const g=el('section','grp');g.append(el('h4',null,title));const d=el('div');
  if(!list.length)d.append(el('span','empty',empty||'暂无'));list.forEach(x=>d.append(el('span','tag '+(cls||''),x)));g.append(d);return g;}
@@ -577,7 +589,7 @@ function useItem(n,inFight){if(!S.inv[n]){say('你没有'+n+'。','bad');return 
   if(i.flee){if(!inFight){say('还是留到危急时再用吧。','bad');return go();}if(S.fight.boss){say('萧寒袍袖一卷，烟雾尽散：「雕虫小技！」','bad');item(n,-1);return enemyTurn();}item(n,-1);say('你将烟雾弹往地上一摔，白烟滚滚，趁机脱身。');S.fight=null;S._win=null;S.buff=null;$('status').textContent='点上面的选项，或写下你的行动';return go();}
   if(inFight){say('交手之际，这东西派不上用场。','bad');return fightMenu();}
   if(i.book){if(learned(i.book)||mySkills().some(s=>s.n===i.book)){say('「'+i.book+'」你早已练熟。','bad');return go();}item(n,-1);S.learned=(S.learned||[]).concat(i.book);
-   if(!SKILLS.some(s=>s.n===i.book)){S.xsk=(S.xsk||[]).concat(i.book).slice(-6);S.xskEl=S.xskEl||{};S.xskEl[i.book]=S.xskEl[i.book]||hashEl(i.book);}
+   if(!SKILLS.some(s=>s.n===i.book)){S.xsk=(S.xsk||[]).concat(i.book);S.xskEl=S.xskEl||{};S.xskEl[i.book]=S.xskEl[i.book]||hashEl(i.book);}
    say('你闭关参悟'+n+'，豁然贯通——习得武功「'+i.book+'」！','sys');note('习得'+i.book);return go();}
   if(i.silver){item(n,-1);S.gold+=i.silver;say('你到钱庄兑了银票，银两 +'+i.silver,'sys');return go();}
   if(i.map){S.flags.cultMap=1;say('你展开地图细看，血月峰的密道清清楚楚。打开「地图」即可前往血月教总坛。');return go();}
@@ -756,14 +768,16 @@ function buildEnemy(e){const named=!!(e.named||e.boss||e.lv>=6||(e.hp||0)>=100);
  if(e.easy){hp=Math.round(hp*.8);atk=Math.max(2,Math.round(atk*.85));}
  if(named){hp=Math.round(hp*1.3);atk=Math.round(atk*1.05);def+=1;}
  if(e.boss){hp=Math.round(310+S.lv*28);atk=Math.round(12+S.lv*1.8);def=Math.round(7+S.lv*.5);}
+ {const k=(named||e.boss)?.85:.78;hp=Math.round(hp*k);atk=Math.max(2,Math.round(atk*k));}
  if(e.wounded)hp=Math.round(hp*.6);
  const fel=validEl(e.el)||NAMED_EL[e.n]||(named?hashEl(e.n):pick(EL5));
  return {n:e.n,el:fel,hp,mhp:hp,atk,def,lv:L,boss:!!e.boss,named,dodge:e.boss?.12:named?.1:.06,phase:1,pot:0,guard:false,bleed:0};}
 /* ===== 同伴助战（无独立气血，只做辅助） ===== */
 function party(){const L=[],ns=S.npcs||{};const bad=o=>o&&/死|亡|离|叛/.test(o.status||'');
  if(S.flags.allyOn&&!bad(ns['柳青']))L.push('柳青');
- Object.values(ns).forEach(o=>{if(o.n!=='柳青'&&/同伴/.test(o.sp||'')&&!bad(o)&&!L.includes(o.n))L.push(o.n);});return L.slice(0,2);}
-function buildComps(){return party().map(n=>{const o=(S.npcs||{})[n]||{rel:40};const r=Math.max(0,Math.min(100,o.rel||0));return {n,rel:r,p:.3+r/100*.35,eff:.85+r/100*.3};});}
+ Object.values(ns).forEach(o=>{if(o.n!=='柳青'&&/同伴/.test(o.sp||'')&&!bad(o)&&!L.includes(o.n))L.push(o.n);});return L.slice(0,5);}
+const CW=[1,.7,.5,.35,.25];
+function buildComps(){return party().map((n,ix)=>{const o=(S.npcs||{})[n]||{rel:40};const r=Math.max(0,Math.min(100,o.rel||0));return {n,rel:r,w:CW[ix],p:(.3+r/100*.35)*CW[ix],eff:.85+r/100*.3};});}
 function compTurn(){const f=S.fight,cs=(f&&f.comps)||[];const pAtk=S._atk;S._atk=false;if(f.brk>0)f.brk--;
  for(const c of cs){if(!chance(c.p))continue;
   if(pAtk&&c.rel>=70&&chance(.25)){const d=Math.max(1,Math.round((R(6,10)+S.lv*3)*c.eff));f.hp-=d;push({k:'r',w:true,t:'合击',d:c.n+'与你心意相通，剑势合一，再伤 '+d+'（剩余 '+Math.max(0,f.hp)+'/'+f.mhp+'）'});if(f.hp<=0)return true;continue;}
@@ -776,13 +790,98 @@ function compTurn(){const f=S.fight,cs=(f&&f.comps)||[];const pAtk=S._atk;S._atk
  return false;}
 /* 遭遇冷却 */
 function canAmbush(cd){const t=S.turn||0,lf=S.lastFight==null?-99:S.lastFight;if(t-lf<(cd||6))return false;if(t<=10&&(S.fights||0)>=1)return false;return true;}
-function startFight(e,win){e=e||scaleEnemy();if(!e.named&&!e.boss&&(S.turn||0)<=10)e=Object.assign({easy:1},e);S.fight=buildEnemy(e);S._win=win||null;const f=S.fight;S.lastFight=S.turn||0;S.fights=(S.fights||0)+1;
- f.comps=buildComps();if(f.comps.length){const k=1+.15*f.comps.length;f.hp=f.mhp=Math.round(f.mhp*k);say(f.comps.map(c=>c.n).join('、')+'与你并肩迎敌，会伺机助战','sys');}
+/* ===== 招式交手（仿参考：招式卡、最多三连、胜算与掷骰） ===== */
+const SKCAT={基础剑法:'迅捷',流云剑诀:'阴柔',金刚掌:'刚猛',太虚剑意:'内功'};
+const CATS=['迅捷','内功','阴柔','刚猛'],CATKE={阴柔:'刚猛',刚猛:'迅捷',迅捷:'阴柔'};
+const FXN={jx:'缴械',pf:'破防',sb:'闪避反击',lf:'连发',dx:'点穴',hq:'回气',zs:'灼烧'},FXK=Object.fromEntries(Object.entries(FXN).map(([k,v])=>[v,k]));
+const MOVES={
+ 基础剑法:[{n:'平刺',qi:0,cd:0,p:0},{n:'斜劈',qi:3,cd:1,p:4,fx:'lf'},{n:'回身挑',qi:5,cd:2,p:6,fx:'sb'}],
+ 流云剑诀:[{n:'行云式',qi:6,cd:0,p:6,fx:'sb'},{n:'流水连环',qi:10,cd:1,p:9,fx:'lf'},{n:'云破月来',qi:16,cd:2,p:13,fx:'pf'}],
+ 金刚掌:[{n:'推窗望月',qi:8,cd:0,p:8},{n:'金刚伏魔',qi:14,cd:2,p:12,fx:'jx'},{n:'大力金刚',qi:20,cd:3,p:16,fx:'pf'}],
+ 太虚剑意:[{n:'太虚无形',qi:12,cd:1,p:12,fx:'sb'},{n:'万象归一',qi:20,cd:2,p:17,fx:'dx'},{n:'太虚剑气',qi:28,cd:3,p:22,fx:'lf'}]};
+const hsh=t=>{let h=0;for(const c of String(t))h=(h*31+c.charCodeAt(0))>>>0;return h;};
+function genMoves(n,e){const h=hsh(n);const A={金:['断金','裂石','穿云'],木:['回春','缠藤','万木'],水:['回风','惊涛','覆水'],火:['燎原','焚心','烈焰'],土:['崩山','铁壁','撼地']}[e]||['起手','追魂','绝杀'];
+ const fx=['jx','pf','sb','lf','dx','zs','hq'],T=['式','击','诀'];return [0,1,2].map(i=>({n:A[(h+i)%3]+T[i],qi:6+i*6,cd:i,p:7+i*4,fx:i?fx[(h>>(i*3))%fx.length]:null}));}
+function movesOf(s){return MOVES[s.n]||(S.xmoves&&S.xmoves[s.n])||genMoves(s.n,s.el||'金');}
+function skCat(s){return SKCAT[s.n]||(S.xcat&&S.xcat[s.n])||CATS[hsh(s.n)%4];}
+function skLv(n){return Math.min(9,1+Math.floor(((S.skUse||{})[n]||0)/6));}
+const ZH='一二三四五六七八九';
+function allMoves(){const out=[];mySkills().forEach(s=>movesOf(s).forEach((m,i)=>out.push({s,i,m,key:s.n+'·'+m.n})));return out;}
+const MAXMV=3;
+function comboFrom(c,s,i){if(!c)return {n:1,b:0,sh:false};let n=1,b=0;if(c.sk===s.n&&i===c.i+1){n=(c.n||1)+1;b=(n-1)*5;}
+ const sh=c.sk!==s.n&&SHENG5[c.el]===skillEl(s);if(sh)b+=5;return {n,b:Math.min(b,15),sh};}
+function planMoves(text){const all=allMoves(),out={list:[],qi:0,pow:0,cb:0,skip:[]};let c=null;const seen=new Set();S.cd=S.cd||{};
+ String(text||'').replace(/「([^」]{1,24})」/g,(_,t)=>{const nm=t.includes('·')?t.split('·').pop():t;const mv=all.find(x=>x.key===t)||all.find(x=>x.m.n===nm);if(!mv||seen.has(mv.key))return;seen.add(mv.key);
+  if(out.list.length>=MAXMV){out.skip.push(mv.m.n+'（一回合最多 3 招）');return;}if((S.cd[mv.key]||0)>0){out.skip.push(mv.m.n+'（冷却中）');return;}
+  if(out.qi+(mv.m.qi||0)>S.mp){out.skip.push(mv.m.n+'（内力不够）');return;}
+  const cb=comboFrom(c,mv.s,mv.i);out.list.push(Object.assign({cb},mv));out.qi+=mv.m.qi||0;out.pow+=mv.m.p||0;out.cb+=cb.b;c={sk:mv.s.n,i:mv.i,n:cb.n,el:skillEl(mv.s)};});
+ out.cb=Math.min(out.cb,15);return out;}
+const escRe=t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function toggleMove(mv){let v=ta.value;const re=new RegExp('(，?\\s*(?:接|使出))?「(?:'+escRe(mv.key)+'|'+escRe(mv.m.n)+')」');
+ if(re.test(v))v=v.replace(re,'').replace(/^[，\s]+/,'').replace(/^接/,'使出').trim();
+ else{const has=/「[^」]+」/.test(v);v=v.trim();v=v?(v+(has?'，接':'，使出')+'「'+mv.m.n+'」'):'使出「'+mv.m.n+'」';}
+ ta.value=v;autosize();renderMoves();fightChips();}
+function renderMoves(){const box=$('moves');if(!box)return;box.textContent='';box.hidden=!S||!S.fight||S.over;if(box.hidden)return;
+ const plan=planMoves($("act").value),picked=plan.list.map(x=>x.key);const h=el('div','mh');
+ h.append(el('span',null,plan.list.length?'已选 '+plan.list.length+'/3 招 · 内力 '+plan.qi+'/'+S.mp+' · 威力 +'+Math.min(15,Math.round(plan.pow*.6))+(plan.cb?' · 连招 +'+plan.cb:''):'交手中 · 点招式加入输入框，最多连出 3 招（也可直接写：偷袭、借地形……）'));box.append(h);
+ const row=el('div','ml');allMoves().forEach(mv=>{const {s,m,key}=mv;const cdl=(S.cd||{})[key]||0,idx=picked.indexOf(key),on=idx>=0;
+  const prev=on?(idx?plan.list[idx-1]:null):plan.list[plan.list.length-1];const cb=on?plan.list[idx].cb:comboFrom(prev?{sk:prev.s.n,i:prev.i,n:prev.cb.n,el:skillEl(prev.s)}:null,s,mv.i);
+  const b=el('button','mv'+(cb.b>0?' combo':'')+(on?' on':''));if(on)b.append(el('em','mvn',String(idx+1)));
+  const e=skillEl(s),mul=elMul(e,S.fight.el);
+  b.append(el('strong',null,m.n),el('span',null,s.n+' · '+e+(mul>1?'↑':mul<1?'↓':'')+(m.p?' · 威力+'+m.p:'')),el('span',null,'内力 '+(m.qi||0)+(m.cd?' · 冷却'+m.cd:'')+(cdl?'（还剩'+cdl+'）':'')+(m.fx?' · '+FXN[m.fx]:'')+(cb.b>0?' · 连招+'+cb.b:'')));
+  b.title=skCat(s)+' · '+ZH[skLv(s.n)-1]+'重';if(!on&&(cdl>0||plan.list.length>=3||plan.qi+(m.qi||0)>S.mp))b.disabled=true;b.onclick=()=>toggleMove(mv);row.append(b);});
+ box.append(row);if(plan.skip.length)box.append(el('div','mh','出不了：'+plan.skip.join('、')));}
+function fightChips(){const f=S.fight;if(!f)return;const plan=planMoves(ta.value);
+ show([[plan.list.length?'出招：'+plan.list.map(x=>x.m.n).join('→'):(ta.value.trim()?'出手：'+ta.value.trim().slice(0,10):'出招：平刺'),()=>{const t=ta.value;ta.value='';autosize();duel(t);},1],
+  ["守势 / 道具 / 逃跑",()=>show([["凝神守御（减伤、回内力）",defend,1],["道具（"+combatItems().reduce((a,n)=>a+S.inv[n],0)+"）",itemMenu,1],["逃跑",flee,1],["返回",fightMenu,1]]),1]]);renderMoves();}
+function tickCd(){const c=S.cd||{};Object.keys(c).forEach(k=>{if(c[k]>0)c[k]--;if(!c[k])delete c[k];});}
+const OUT=[['大胜',30,1,.25],['占优',0,.75,.7],['相持',-20,.5,.9],['吃了亏',-999,.25,1.15]];
+function duel(text){const f=S.fight;if(!f||S.over)return;text=String(text||'').trim();
+ if(/^(逃|跑|撤)|逃跑|溜走/.test(text))return flee();if(/^(守|防)|守势|防守/.test(text)&&!/「/.test(text))return defend();
+ let plan=planMoves(text);const all=allMoves();if(!plan.list.length){const b=all[0];plan={list:[{...b,cb:{n:1,b:0}}],qi:0,pow:0,cb:0,skip:plan.skip};}
+ S.mp-=plan.qi;tickCd();plan.list.forEach(x=>{if(x.m.cd)S.cd[x.key]=x.m.cd;});const main=plan.list.reduce((a,x)=>(x.m.p||0)>=(a.m.p||0)?x:a,plan.list[0]);const ms=main.s,me=skillEl(ms);
+ S.skUse=S.skUse||{};plan.list.forEach(x=>{const b=skLv(x.s.n);S.skUse[x.s.n]=(S.skUse[x.s.n]||0)+1;if(skLv(x.s.n)>b)say('「'+x.s.n+'」练到了第'+ZH[skLv(x.s.n)-1]+'重！','sys');});
+ const mods=[],add=(l,v)=>{if(v)mods.push([l,v]);};const diff=f.lv-S.lv;
+ add('招式威力',Math.min(15,Math.round(plan.pow*.6))+Math.floor((skLv(ms.n)-1)/3)*2);
+ const wg=S.eq.weapon&&gearOf(S.eq.weapon);add('兵器'+(wg?'「'+S.eq.weapon+'」':''),wg?Math.min(6,wg.atk):0);
+ const em=elMul(me,f.el);add('五行（'+me+(em>1?'克':em<1?'被克于':'对')+f.el+'）',em>1?12:em<1?-10:0);
+ const sc=skCat(ms);add('招式风格（'+sc+'对'+f.cat+'）',CATKE[sc]===f.cat?8:CATKE[f.cat]===sc?-8:0);
+ const cs=f.comps||[];add('同伴助阵（'+cs.map(c=>c.n).join('、')+'）',cs.reduce((a,c)=>a+Math.round((3+c.rel/100*4)*c.w),0));
+ add('连招',plan.cb);add('等级差（敌'+f.lv+'级/你'+S.lv+'级）',diff<=-2?10:diff===-1?5:diff===0?0:diff===1?-10:diff===2?-20:-30);
+ if(/偷袭|暗算|埋伏|陷阱|地形|偷偷|撒|绕后|声东击西|诱敌/.test(text)){if(!f.trick){f.trick=1;add('偷袭/环境',12);}else add('偷袭/环境（对方已有防备）',2);}
+ if(f.disarm)add('对手兵器脱手',8);if(f.brk)add('对手破防',6);if(S.hp<S.mhp*.35)add('带伤',-8);
+ if(f.boss)add('敌方绝学（血月魔功）',f.phase>1?-14:-8);else if(f.named&&f.phase>1)add('敌方绝学',-6);
+ const odds=Math.max(5,Math.min(95,58+mods.reduce((a,m)=>a+m[1],0))),roll=R(1,100),mg=odds-roll,O=OUT.find(o=>mg>=o[1]);
+ // 我方伤害
+ let dmg=0;const fx=new Set();plan.list.forEach((x,k)=>{const e=skillEl(x.s),mul=elMul(e,f.el);let d=((R(5,9)+atkStat())*x.s.m*(1+(x.m.p||0)/60)-(f.brk||x.m.fx==='pf'?0:f.def))*mul*[1,.45,.3][k];if(x.m.fx==='lf')d*=1.45;dmg+=Math.max(1,d);if(x.m.fx)fx.add(x.m.fx);});
+ if(S.combo){dmg*=1.4;S.combo=null;}if(f.guard){dmg*=.6;f.guard=false;}if(chance((S.el==='火'?.18:.1)+accSum('crit')))dmg*=1.5;if(f.boss&&plan.list.some(x=>x.s.n==='太虚剑意')&&S.flags.weak)dmg*=1.4;
+ dmg=Math.max(1,Math.round(dmg*O[2]*(1.08-S.lv*.03)));f.hp-=dmg;S._atk=true;const notes=[];
+ if(O[2]>=.65){if(fx.has('jx')){f.disarm=2;notes.push('缴械：对手兵器脱手');}if(fx.has('pf')){f.brk=2;notes.push('破防：护体被破');}if(fx.has('dx')){f.seal=1;notes.push('点穴：对手下回合动弹不得');}if(fx.has('zs')){f.ebleed=3;notes.push('灼烧：对手持续掉血');}}
+ if(fx.has('hq')){const h=8+S.lv*2;heal(h);notes.push('回气：气血 +'+h);}if(SHENG5[me]===S.el){S.mp=Math.min(S.mmp,S.mp+3);notes.push(me+'生'+S.el+'，内力 +3');}
+ // 同伴助战
+ let ended=f.hp<=0;if(!ended&&compTurn())ended=true;
+ let taken=0;if(!ended){if(f.seal){f.seal=0;notes.push(f.n+'穴道受制，没能还手');}else{
+   let raw=R(Math.ceil(f.atk*.75),f.atk)*(f.disarm?.7:1)*(1+S.lv*.07);const eem=elMul(f.el,S.el),ar=armorEl(),am=ar?(KE[ar]===f.el?.85:KE[f.el]===ar?1.15:1):1;
+   let em2=O[3];if(fx.has('sb')&&em2>=.8){em2*=.5;const c=Math.round(dmg*.35)+1;f.hp-=c;notes.push('闪避反击：卸开来招，回敬 '+c);}
+   taken=em2?Math.max(1,Math.round((raw-defStat())*eem*am*em2)):0;if(taken&&chance(.08+(S.el==='水'?.04:0)+accSum('dodge'))){taken=0;notes.push('身法一晃，躲过还击');}
+   if(taken&&f.block){taken=Math.max(1,Math.round(taken*.5));notes.push(f.block+'替你格开大半');f.block=null;}
+   if(O[0]==='吃了亏'&&!f.bleed&&chance(.3)){f.bleed=3;notes.push('你中了'+(f.boss?'血月掌毒':'毒伤')+'（3 回合）');}hurt(taken);}
+  if(f.disarm)f.disarm--;if(f.brk)f.brk--;}
+ if(f.bleed>0&&S.hp>0){const b=Math.max(2,Math.round(S.mhp*.04));hurt(b);f.bleed--;taken+=b;notes.push('毒伤发作 -'+b);}
+ const card={k:'d',w:O[2]>=1,t:'交手 · 【'+f.n+'】'+O[0],mv:plan.list.map(x=>x.m.n+(x.cb.b?'(连+'+x.cb.b+')':'')).join(' → ')+(text&&!/「/.test(text)?'　'+text.slice(0,16):''),
+  mods:[['基础',58]].concat(mods),odds,roll,res:'你造成 '+dmg+' 伤害'+(taken?' · 受到 '+taken:' · 毫发无伤')+'　'+f.n+' '+Math.max(0,f.hp)+'/'+f.mhp+' · 你 '+S.hp+'/'+S.mhp,nt:notes.join('；')};
+ push(card);
+ if(f.hp<=0)return winFight();if(S.hp<=0){S._lastFoe=(f.named||f.boss)?'n':'c';S.fight=null;return death();}phaseCheck();
+ if(aiOn())return narrate(card,text);fightMenu();}
+async function narrate(c,text){const nEl=el('div','n wait','……');$('log').append(nEl);scroll();setBusy(true);AI.ctl=new AbortController();
+ const msg='主角'+S.name+'（'+S.el+'属，'+S.lv+'级）与'+S.fight.n+'（'+S.fight.el+'属）交手。'+(text?'玩家的行动：'+text+'。':'')+'出招：'+c.mv+'。结果卡：胜算 '+c.odds+'%，掷出 '+c.roll+'，'+c.t.split('】')[1]+'；'+c.res+(c.nt?'；'+c.nt:'')+'。请按这个结果写 60~120 字的打斗正文，写出招名和攻防，不改变数值和胜负，不写选项、不写 JSON。';
+ try{const out=await callGrok([{role:'system',content:'你是武侠小说说书人，笔法凝练有画面感。'},{role:'user',content:msg}],t=>{nEl.classList.remove('wait');nEl.textContent=t;scroll();},AI.ctl.signal);nEl.remove();setBusy(false);push({k:'n',t:str(out,600)});}
+ catch(e){nEl.remove();setBusy(false);}
+ if(S.fight)fightMenu();}
+function startFight(e,win){e=e||scaleEnemy();if(!e.named&&!e.boss&&(S.turn||0)<=10)e=Object.assign({easy:1},e);S.fight=buildEnemy(e);S._win=win||null;const f=S.fight;S.lastFight=S.turn||0;S.fights=(S.fights||0)+1;S.cd={};f.cat=f.boss?'内功':CATS[(f.named?hsh(f.n):R(0,99))%4];const _a=document.getElementById('act');if(_a)_a.value='';
+ f.comps=buildComps();if(f.comps.length){const k=1+.15*f.comps.reduce((a,c)=>a+c.w,0);f.hp=f.mhp=Math.round(f.mhp*k);say(f.comps.map(c=>c.n).join('、')+'与你并肩迎敌，会伺机助战','sys');}
  say('⚔ 遭遇【'+f.n+'】'+(f.boss?'（宗师）':f.named?'（劲敌）':'')+' · '+f.el+'属 · 气血 '+f.hp+' · 攻 '+f.atk+' · 防 '+f.def,'set');fightMenu();}
-function fightMenu(){const f=S.fight;const sk=mySkills();const c=sk.length>3?[sk[0],sk[sk.length-2],sk[sk.length-1]]:sk.slice();
- const ch=c.map(s=>{const e=skillEl(s),m=elMul(e,f.el);return [s.n+'·'+e+(m>1?'↑':m<1?'↓':'')+(s.mp?'（内力'+s.mp+'）':''),()=>attack(s),1];});
- ch.push(["守势 / 道具 / 逃跑",()=>show([["凝神守御（减伤、回内力）",defend,1],["道具（"+combatItems().reduce((a,n)=>a+S.inv[n],0)+"）",itemMenu,1],["逃跑",flee,1],["返回",fightMenu,1]]),1]);
- $('status').textContent='【'+f.n+'·'+f.el+'】气血 '+Math.max(0,f.hp)+'/'+f.mhp+(f.guard?' · 架势防守':'')+(S.fight.bleed?' · 你中毒/流血':'')+' · 用药 '+f.pot+'/2';show(ch);}
+function fightMenu(){const f=S.fight;$('status').textContent='【'+f.n+'·'+f.el+'·'+f.cat+'】气血 '+Math.max(0,f.hp)+'/'+f.mhp+(f.guard?' · 架势防守':'')+(f.bleed?' · 你中毒/流血':'')+' · 用药 '+f.pot+'/2';fightChips();}
 function attack(s){const f=S.fight;if(S.mp<s.mp){say('内力不足！','bad');return fightMenu();}S.mp-=s.mp;S._guard=false;
  if(chance(f.dodge)){push({k:'r',w:false,t:s.n,d:f.n+'身形一晃，避开了你这一招'});return enemyTurn();}
  const ae=skillEl(s),em=elMul(ae,f.el);let d=Math.round(((R(5,9)+atkStat())*s.m-(f.brk?0:f.def))*em);if(S.combo){d=Math.round(d*1.4);S.combo=null;}let m=em>1?'以'+ae+'克'+f.el+'，伤害大增！':em<1?ae+'被'+f.el+'所克，劲力受阻。':'';
@@ -797,7 +896,7 @@ function phaseCheck(){const f=S.fight;if(!f||!(f.named||f.boss))return;
  if(f.phase===1&&f.hp<f.mhp*.5){f.phase=2;f.atk=Math.round(f.atk*1.25);f.dodge+=.04;push({k:'t',t:f.boss?'萧寒长啸一声，血月魔功催至第九重，掌风骤然凌厉！':f.n+'被激起凶性，出手更狠了！'});}
  if(f.boss&&f.phase===2&&f.hp<f.mhp*.2){f.phase=3;const h=Math.round(f.mhp*.12);f.hp+=h;push({k:'t',t:'萧寒咬破舌尖，以血祭功，气血回复 '+h+'——这是最后的疯狂！'});}}
 function defend(){S._guard=true;S.mp=Math.min(S.mmp,S.mp+8);push({k:'r',w:true,t:'凝神守御',d:'你沉肩坠肘，护住周身要害（本回合受伤减半，内力 +8）'});enemyTurn();}
-function enemyTurn(){const f=S.fight;let note='';if(compTurn())return winFight();if(f.seal){f.seal=0;push({k:'r',w:true,t:'穴道受制',d:f.n+'穴道被封，这一回合动弹不得'});S._guard=false;return fightMenu();}
+function enemyTurn(){const f=S.fight;let note='';tickCd();if(compTurn())return winFight();if(f.seal){f.seal=0;push({k:'r',w:true,t:'穴道受制',d:f.n+'穴道被封，这一回合动弹不得'});S._guard=false;return fightMenu();}
  if(f.bleed>0){const b=Math.max(2,Math.round(S.mhp*.04));hurt(b);f.bleed--;push({k:'r',w:false,t:'毒伤发作',d:'气血 -'+b+'（剩 '+S.hp+'）'});if(S.hp<=0){S._lastFoe=(S.fight&&(S.fight.named||S.fight.boss))?'n':'c';S.fight=null;S._guard=false;return death();}}
  const r=Math.random();let mult=1,name=f.n+'出手';
  if(r<.1){f.guard=true;push({k:'r',w:false,t:f.n+'摆出守势',d:'下一招你的伤害减半'});S._guard=false;return fightMenu();}
@@ -849,13 +948,13 @@ const KW=[
 ];
 const ta=$('act');
 function autosize(){ta.style.height='auto';ta.style.height=Math.min(120,ta.scrollHeight)+'px';}
-function freeAct(){if(AI.busy){AI.ctl&&AI.ctl.abort();return;}const t=ta.value.trim();if(!t||!S||S.over)return;ta.value='';autosize();closeAll();say('▸ '+t,'you');
- if(S.fight){say('生死相搏之际，只能出招！','bad');return fightMenu();}
- S.steps++;S.turn=(S.turn||0)+1;if(aiOn())return aiTurn(t,()=>offlineFree(t));offlineFree(t);}
+function freeAct(){if(AI.busy){AI.ctl&&AI.ctl.abort();return;}const t=ta.value.trim();if(!t||!S||S.over)return;ta.value='';autosize();closeAll();
+ if(S.fight){say('▸ '+t,'you');return duel(t);}
+ say('▸ '+t,'you');S.steps++;S.turn=(S.turn||0)+1;if(aiOn())return aiTurn(t,()=>offlineFree(t));offlineFree(t);}
 function offlineFree(t){S._skip=1;
  for(const [re,fn] of KW)if(re.test(t)){const r=fn();if(r==='f')return startFight();if(r==='x')return;return go();}
  say(pick(['你'+t+'，但似乎什么也没发生。远处传来一声鸦啼。','你试着'+t+'，路人投来奇怪的目光。','你'+t+'了一阵，心中若有所悟。']));if(chance(.3))gainXp(3);go();}
-$('go').onclick=freeAct;ta.addEventListener('input',autosize);
+$('go').onclick=freeAct;ta.addEventListener('input',()=>{autosize();if(S&&S.fight&&!AI.busy){renderMoves();const p=planMoves(ta.value),b=$('chips').querySelector('button');if(b)b.textContent=p.list.length?'出招：'+p.list.map(x=>x.m.n).join('→'):(ta.value.trim()?'出手：'+ta.value.trim().slice(0,10):'出招：平刺');}});
 ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();freeAct();}});
 
 /* ===== Grok AI 续写 ===== */
@@ -903,11 +1002,11 @@ function sysPrompt(){return `你是一位武侠说书人，正在主持一场名
 2. 顺着玩家的行动写结果，不要替玩家做重大决定；玩家行动荒唐也要合理圆回来。行动有风险时要有代价，不能事事如意。
 3. 正文结尾留一个悬念或抉择点。不要在正文里写数值、不要提"游戏""JSON"。
 4. 根据主角等级安排对手强弱；主线线索要慢慢给，集齐 5 条线索且等级足够后，才让主角找到总坛、面对萧寒。
-5. 战斗只是偶尔发生：开局前十回合以剧情、人物、探索为主，最多一场轻松的小冲突；两场战斗之间至少隔五六回合，过密的 fight 会被游戏忽略。多写对话、抉择、奇遇。需要真正交手时，用 fight 字段发起战斗（游戏会用回合制战斗系统结算），正文只写到双方拔刀对峙为止，不要写出胜负。
-【同伴】人物 special 写「同伴」即入队（最多 2 名），同伴会在回合制战斗中伺机助攻、疗伤、格挡、封穴或与主角合击；正文可描写同伴的配合。
+5. 交手由游戏结算：玩家选招式，游戏算胜算、掷骰并给出交手结果卡，再请你按结果写打斗正文，你不必自己判胜负。战斗只是偶尔发生：开局前十回合以剧情、人物、探索为主，最多一场轻松的小冲突；两场战斗之间至少隔五六回合，过密的 fight 会被游戏忽略。多写对话、抉择、奇遇。需要真正交手时，用 fight 字段发起战斗（游戏会用回合制战斗系统结算），正文只写到双方拔刀对峙为止，不要写出胜负。
+【同伴】人物 special 写「同伴」即入队（最多 5 名），同伴会在回合制战斗中伺机助攻、疗伤、格挡、封穴或与主角合击；正文可描写同伴的配合。
 6. 只有主角真正走到故事终点（手刃萧寒、投靠血月教、归隐等）才给 ending。
 【输出格式】先写正文；正文后单独一行写【状态】，下一行写一行 JSON（不要代码块），字段如下，没有变化的字段可省略：
-{"choices":["3~4 个接下来的行动选项，每个不超过 14 字"],"hp":气血增减整数,"qi":内力增减整数,"xp":修为增加整数(0~80),"silver":银两增减整数,"gain":[{"name":"物品名","category":"drug(药物)/tool(道具)/quest(任务物品)/misc(杂物)","desc":"一句描述","hp":回复气血(0~80),"mp":回复内力(0~60),"cure":是否解毒,"dmg":暗器伤害(0~40),"gift":可赠送时的好感值(0~15),"silver":银票面额(0~200),"book":"若是秘籍写可习得的武功名"}]（兵器护甲饰品写在 gear 里）,"lose":["失去的物品"],"skill":"新学会的武功名或空","skill_element":"该武功的五行（金/木/水/火/土）","place":"主角现在所在地名","clue":"新得到的主线线索一句话或空","note":"值得记入日志的事一句话或空","fight":{"enemy":"对手名","hp":对手气血,"atk":对手攻击力,"element":"对手五行（金/木/水/火/土）","boss":false} 或 null,"ending":{"title":"四字结局名","text":"结局尾声 60~120 字"} 或 null,"npcs":[{"name":"人物名","title":"身份","sect":"门派","age":"年纪","look":"相貌（中文）","personality":"性情","level":"武功高低","rel":本回合好感变化整数，平常 -8~8，只有救命、背叛、表白、结义这类大事才可到 ±15 并同时写 "major":true,"special":"特殊关系如师徒/同伴/知己(需好感≥50)/恋人(≥65)/结义(≥70)/生死之交(≥85)，且必须有相应剧情事件，否则省略","status":"在世/已故/受伤等","where":"所在","event":"本回合与主角之间发生的事一句话"}] 本回合登场或关系有变的人物，最多 4 个，已登记过的人物只写变化的字段,"gear":[{"name":"装备名","type":"weapon/armor/accessory","atk":攻击加成(一般1~5,最多10),"def":防御加成(一般1~5,最多10),"element":"装备五行（金/木/水/火/土）"}] 本回合获得的兵器护甲饰品（不要同时写进 gain）,"img":"用英文写的本回合画面描述，40~70 词，只写场景、人物动作、表情、光线、构图，不写画风，主角用 the hero 指代","image_type":"本回合正文重点在描写某个人物（外貌、神态、登场亮相、对话特写）时填 character，否则（风景、打斗全景、环境）填 scene","character":"image_type 为 character 时，用英文写这个人物的外貌：性别、大致年龄（必须是成年人）、发型、五官气质、服饰颜色与款式，20~40 词；是主角就写 the hero"}
+{"choices":["3~4 个接下来的行动选项，每个不超过 14 字"],"hp":气血增减整数,"qi":内力增减整数,"xp":修为增加整数(0~80),"silver":银两增减整数,"gain":[{"name":"物品名","category":"drug(药物)/tool(道具)/quest(任务物品)/misc(杂物)","desc":"一句描述","hp":回复气血(0~80),"mp":回复内力(0~60),"cure":是否解毒,"dmg":暗器伤害(0~40),"gift":可赠送时的好感值(0~15),"silver":银票面额(0~200),"book":"若是秘籍写可习得的武功名"}]（兵器护甲饰品写在 gear 里）,"lose":["失去的物品"],"skill":"新学会的武功名或空","skill_element":"该武功的五行（金/木/水/火/土）","skill_type":"迅捷/内功/阴柔/刚猛","skill_moves":[{"name":"招名","qi":内力5~30,"cd":冷却0~3,"power":威力0~18,"effect":"缴械/破防/闪避反击/连发/点穴/回气/灼烧 之一或空"}],"place":"主角现在所在地名","clue":"新得到的主线线索一句话或空","note":"值得记入日志的事一句话或空","fight":{"enemy":"对手名","hp":对手气血,"atk":对手攻击力,"element":"对手五行（金/木/水/火/土）","boss":false} 或 null,"ending":{"title":"四字结局名","text":"结局尾声 60~120 字"} 或 null,"npcs":[{"name":"人物名","title":"身份","sect":"门派","age":"年纪","look":"相貌（中文）","personality":"性情","level":"武功高低","rel":本回合好感变化整数，平常 -8~8，只有救命、背叛、表白、结义这类大事才可到 ±15 并同时写 "major":true,"special":"特殊关系如师徒/同伴/知己(需好感≥50)/恋人(≥65)/结义(≥70)/生死之交(≥85)，且必须有相应剧情事件，否则省略","status":"在世/已故/受伤等","where":"所在","event":"本回合与主角之间发生的事一句话"}] 本回合登场或关系有变的人物，最多 4 个，已登记过的人物只写变化的字段,"gear":[{"name":"装备名","type":"weapon/armor/accessory","atk":攻击加成(一般1~5,最多10),"def":防御加成(一般1~5,最多10),"element":"装备五行（金/木/水/火/土）"}] 本回合获得的兵器护甲饰品（不要同时写进 gain）,"img":"用英文写的本回合画面描述，40~70 词，只写场景、人物动作、表情、光线、构图，不写画风，主角用 the hero 指代","image_type":"本回合正文重点在描写某个人物（外貌、神态、登场亮相、对话特写）时填 character，否则（风景、打斗全景、环境）填 scene","character":"image_type 为 character 时，用英文写这个人物的外貌：性别、大致年龄（必须是成年人）、发型、五官气质、服饰颜色与款式，20~40 词；是主角就写 the hero"}
 参考数值：游戏会按主角等级自动调整对手强度，你只需给出相对强弱（小喽啰气血 30~60、攻击 6~10；高手 100~150、攻击 14~20；萧寒标 boss:true）。一回合 hp 增减一般在 -25~+30 之间。
 【五行】战斗按五行相克结算：金克木、木克土、土克水、水克火、火克金；每个对手、武功、兵器、护甲都有五行，请在 fight/skill/gear 里写明，并在正文里偶尔点出相克之理（如以水克火）。
 【平衡】人物关系要慢慢培养：寒暄、送礼只加一两点，同样的举动反复做不再加；信任要靠共同经历的大事。战斗要有挑战性：对手会反击、会用毒、会防守，主角受伤是常态，不要让主角轻松碾压；兵器护甲要少给，几回合才偶尔给一件，加成多为 1~5，神兵利器极为罕见。`;}
@@ -975,11 +1074,15 @@ function applyAI(j){
   gainGear(n,{t,atk:int(g.atk,0,10),def:int(g.def,0,10),el:validEl(g.element)||hashEl(n)},true);});
  (Array.isArray(j.npcs)?j.npcs:[]).slice(0,4).forEach(x=>{if(!x||typeof x!=='object')return;const n=str(x.name,10);if(!n||n===S.name)return;
   const ev=str(x.event,40),major=x.major===true;let sp=str(x.special,6);const ex=S.npcs&&S.npcs[n];
-  if(sp&&ex&&!spOk(ex,sp,ev)&&ex.sp!==sp){sp='';}if(sp&&!ex&&SP_NEED[sp])sp='';if(/同伴/.test(sp)&&!party().includes(n)&&party().length>=2){sp='';say('队伍已满（最多 2 名同伴），'+n+'未能同行。','sys');}
+  if(sp&&ex&&!spOk(ex,sp,ev)&&ex.sp!==sp){sp='';}if(sp&&!ex&&SP_NEED[sp])sp='';if(/同伴/.test(sp)&&!party().includes(n)&&party().length>=5){sp='';say('队伍已满（最多 5 名同伴），'+n+'未能同行。','sys');}
   meet(n,{title:str(x.title,20),sect:str(x.sect,12),age:str(x.age,10),look:str(x.look,80),pers:str(x.personality,40),lv:str(x.level,10),sp,status:str(x.status,16),where:str(x.where,16)});
   const d=major?int(x.rel,-15,15):int(x.rel,-8,8);if(d)rel(n,d,ev,{raw:1});else if(ev){const o=S.npcs[n];o.ev.push('第'+S.day+'日 '+ev);if(o.ev.length>12)o.ev=o.ev.slice(-12);}});
  strs(j.lose,5,12).forEach(n=>{if(S.inv[n]){item(n,-1);say('失去【'+n+'】','bad');}});
- const sk=str(j.skill,10);if(sk&&!mySkills().some(s=>s.n===sk)){S.xsk=(S.xsk||[]).concat(sk).slice(-6);S.xskEl=S.xskEl||{};S.xskEl[sk]=validEl(j.skill_element)||hashEl(sk);say('习得武功【'+sk+'】','sys');note('习得'+sk);}
+ [str(j.skill,12)].concat(strs(j.skills,4,12)).map(x=>x.replace(/[（(【「].*$/,'').trim()).filter(Boolean).forEach((sk,ix)=>{const known=mySkills().some(s=>s.n===sk);
+  if(!known){if(SKILLS.some(s=>s.n===sk))S.learned=(S.learned||[]).concat(sk);else{S.xsk=(S.xsk||[]).concat(sk);S.xskEl=S.xskEl||{};S.xskEl[sk]=(!ix&&validEl(j.skill_element))||hashEl(sk);}say('习得武功【'+sk+'】','sys');note('习得'+sk);}
+  if(!ix&&!SKILLS.some(s=>s.n===sk)){if(CATS.includes(j.skill_type)){S.xcat=S.xcat||{};S.xcat[sk]=j.skill_type;}
+   const mv=(Array.isArray(j.skill_moves)?j.skill_moves:[]).slice(0,4).map((m,k)=>m&&typeof m==='object'&&str(m.name,8)?{n:str(m.name,8),qi:int(m.qi,0,30),cd:int(m.cd,0,3),p:int(m.power,0,18),fx:FXK[str(m.effect,4)]||null}:null).filter(Boolean);
+   if(mv.length){S.xmoves=S.xmoves||{};S.xmoves[sk]=mv;}}});
  const pl=str(j.place,12);if(pl){const k=Object.keys(LOC).find(k=>pl.includes(LOC[k].n)||LOC[k].n.includes(pl));
   if(k&&(k!=='cult'||S.flags.cultMap||S.clues>=5)){S.loc=k;S.place='';if(!S.seen.includes(k))S.seen.push(k);if(k==='cult')S.flags.cultMap=1;}else if(!k)S.place=pl;}
  const cl=str(j.clue,40);if(cl&&S.clues<12)addClue(cl);
