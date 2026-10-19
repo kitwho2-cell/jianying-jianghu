@@ -87,6 +87,7 @@ button{-webkit-appearance:none;appearance:none;background:transparent;color:inhe
 .rdesc{line-height:1.6;color:var(--ink)}
 .party{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-family:var(--sans);font-size:12px;color:var(--dim)}
 .party button{background:transparent;border:1px solid var(--jade);color:var(--jade);padding:2px 8px;cursor:pointer;font-size:12px}
+.pbox{border:1px solid var(--jade);padding:8px 10px;display:grid;gap:4px;font-family:var(--sans);font-size:12px;margin-bottom:8px}.pbox strong{color:var(--jade)}.pbox .prow{display:flex;gap:8px;align-items:center}.pbox .prow span{color:var(--dim);flex:1}.pbox .prow.gone{color:var(--dim)}.pbox em{font-style:normal;color:var(--dim);margin-top:4px}.pbox .ghost{font-size:11px;padding:1px 6px}
 .party button .elb{width:16px;height:16px;font-size:12px;margin:0 4px 0 0;vertical-align:-2px}
 .tsum{display:grid;gap:6px;border:1px solid var(--line);padding:8px 10px;background:var(--bg)}
 .tsum .els5{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
@@ -473,7 +474,7 @@ function ui(){foeCard();if(!S||!S.fight){const mb=$('moves');if(mb)mb.hidden=tru
  $('hpB').style.width=(S.hp/S.mhp*100)+'%';$('qiB').style.width=(S.mp/S.mmp*100)+'%';$('xpB').style.width=(S.xp/need()*100)+'%';
  $('qN').textContent=Math.min(S.clues,5);$('mN').textContent=S.seen.length;$('kN').textContent=mySkills().length;
  $('iN').textContent=Object.values(S.inv).reduce((a,b)=>a+b,0);$('jN').textContent=S.notes.length;$('rN').textContent=npcList().length;
- const pt=$('party'),pa=party();pt.hidden=!pa.length;pt.textContent='';if(pa.length){pt.append('队伍 '+pa.length+'/5：');pa.forEach(n=>pt.append(el('button',null,n)));}
+ ensureParty();const pt=$('party'),pa=S.party;pt.hidden=!pa.length;pt.textContent='';if(pa.length){pt.append('队伍 '+S.party.length+'/'+PCAP+'：');S.party.forEach(n=>{const b=el('button',null,n+(S.away[n]?'（暂离）':''));b.onclick=()=>{const rb=$('rBtn');if(rb)rb.click();};pt.append(b);});}
  renderPanels();}
 const mySkills=()=>SKILLS.filter(s=>!s.need||(S.learned||[]).includes(s.n)).concat([...new Set((S.xsk||[]).concat((S.learned||[]).filter(n=>!SKILLS.some(s=>s.n===n))))].map(n=>({n,mp:10,m:1.5,d:'奇遇',el:(S.xskEl&&S.xskEl[n])||hashEl(n)})));
 const skillEl=s=>s.el||weaponEl();
@@ -671,7 +672,7 @@ function migrate(){S.itemDef=S.itemDef||{};if(!S.learned){S.learned=[];S.inv=S.i
   if(S.flags.ally)meet('柳青',{title:'师父之女',rel:S.flags.allyOn?40:-5,sp:S.flags.allyOn?'同伴':''});QUIET=false;}}
 const npcList=()=>Object.values(S.npcs||{});
 let relSel=null;
-function renderRel(){const p=$('rPanel');if(!p)return;p.textContent='';const L=npcList().sort((a,b)=>Math.abs(b.rel)-Math.abs(a.rel));
+function renderRel(){const p=$('rPanel');if(!p)return;p.textContent='';if(S)p.append(partyBox());const L=npcList().sort((a,b)=>Math.abs(b.rel)-Math.abs(a.rel));
  if(!L.length){p.append(el('div','empty','还没有结识任何人。'));closer(p,'收起关系');return;}
  const ul=el('div','rlist');L.forEach(n=>{const r=el('button','rrow'+(relSel===n.n?' sel':'')+(/已故|身亡|死/.test(n.status||'')?' gone':''));
   const dot=el('span','rdot');dot.style.background=relColor(n.rel);const nm=el('strong',null,n.n);
@@ -704,7 +705,7 @@ function heal(h){S.hp=Math.min(S.mhp,S.hp+h);}
 function addClue(t){S.clues++;note('线索：'+t);say('获得线索：'+t,'sys');}
 function act(i){const c=S._c&&S._c[i];if(!c||S.over||AI.busy)return;closeAll();say('▸ '+c[0],'you');S.steps++;if(!S.fight)S.turn=(S.turn||0)+1;
  if(aiOn()&&!S.fight&&!c[2])return aiTurn(c[0],c[1]);c[1]();}
-function go(){if(S.over)return;S.place='';if(S.fight)return fightMenu();if(S.hp<=0)return death();checkEnd()||hub();}
+function go(){if(S.over)return;S.place='';if(S.fight)return fightMenu();if(S.hp<=0)return death();partyTick();if(S.pendJoin&&S.pendJoin.length)return swapPrompt(go);checkEnd()||hub();}
 
 /* ===== 主线 ===== */
 function intro(){
@@ -735,7 +736,7 @@ function story(){const f=S.flags;
  if(S.loc==="river"&&!f.boat&&(f.jade||S.clues>=2))return["向乌篷船夫出示玉佩",()=>{f.boat=1;say('船夫掀开斗笠，竟是一位白发老妪：「沧浪派最后的传人，等你很久了。」她赠你流云剑谱，并告诉你另半块玉佩在血月护法手中。');meet('沧浪老妪',{title:'沧浪派最后的传人',sect:'沧浪派',age:'七十上下',look:'白发如雪，斗笠蓑衣，目光如电',pers:'孤傲而重情',lv:'一流高手',where:'沧浪江渡口',rel:35,ev:'赠流云剑谱'});item("流云剑谱");addClue('另半块玉佩在血月护法手中');go();}];
  if(S.loc==="city"&&!f.palace&&(f.cityLead||S.lv>=4))return["夜探锦衣卫衙门",()=>{f.palace=1;say('你翻墙入院，见千户正与血月护法交换密函。千户察觉，拔刀而来！');meet('锦衣卫千户',{title:'锦衣卫千户·血月内应',sect:'锦衣卫',age:'四十许',look:'飞鱼服，绣春刀，鹰钩鼻',pers:'阴鸷贪婪',lv:'一流好手',rel:-50,ev:'与血月护法勾结，被你撞破'});startFight(Object.assign({named:1},ENEMY[7]),()=>{say('你在千户身上搜到一张血月总坛地图，还有一卷发黄的残卷！');item("太虚残卷");item('血月总坛地图');f.cultMap=1;addClue('血月总坛在北山血月峰');S.rep+=10;go();});}];
  if(S.loc==="cult"&&!f.boss)return["闯入大殿，直面教主",bossIntro];
- if(S.loc==="town"&&S.clues>=3&&!f.ally)return["回铁匠铺看看",()=>{f.ally=1;say('铁匠铺里，竟有一位女子在等你——她自称是师父的女儿柳青：「我要和你一起报仇。」');meet('柳青',{title:'师父之女',sect:'承父亲武学',age:'二十二岁',look:'眉目清丽，长发以玉簪半挽，一袭淡绿衣裙，腰悬短剑',pers:'倔强果敢，外冷内热',lv:'二流好手',where:'青石镇铁匠铺',rel:20,ev:'在铁匠铺相认'});show([["欣然同行",()=>{f.allyOn=1;note('柳青加入同行');rel('柳青',12,'结伴同行，誓报父仇',{major:1});S.npcs['柳青'].sp='同伴';say('柳青加入了你。战斗中她会助你一臂之力。','sys');go();}],["独自上路更安全",()=>{say('柳青咬唇：「那你保重。」她转身消失在雨巷。');S.karma--;rel('柳青',-15,'被你拒绝同行');S.npcs['柳青'].where='下落不明';go();}]]);}];
+ if(S.loc==="town"&&S.clues>=3&&!f.ally)return["回铁匠铺看看",()=>{f.ally=1;say('铁匠铺里，竟有一位女子在等你——她自称是师父的女儿柳青：「我要和你一起报仇。」');meet('柳青',{title:'师父之女',sect:'承父亲武学',age:'二十二岁',look:'眉目清丽，长发以玉簪半挽，一袭淡绿衣裙，腰悬短剑',pers:'倔强果敢，外冷内热',lv:'二流好手',where:'青石镇铁匠铺',rel:20,ev:'在铁匠铺相认'});show([["欣然同行",()=>{rel('柳青',12,'结伴同行，誓报父仇',{major:1});joinParty('柳青','结伴同行，誓报父仇');say('战斗中她会助你一臂之力。','sys');go();}],["独自上路更安全",()=>{say('柳青咬唇：「那你保重。」她转身消失在雨巷。');S.karma--;rel('柳青',-15,'被你拒绝同行');S.npcs['柳青'].where='下落不明';go();}]]);}];
  return null;}
 function randomEvent(){
  const evs=[
@@ -744,7 +745,7 @@ function randomEvent(){
   ()=>{const g=R(5,25);say('你在草丛里发现一个破旧包袱，里面有'+g+'两银子。');show([["收下",()=>{S.gold+=g;say('银两 +'+g,'sys');go();}],["等失主回来",()=>{say('一个小孩哭着跑来找包袱，你物归原主。孩子的爷爷是退隐的高手，指点了你几招。');S.karma+=2;gainXp(25);go();}]]);},
   ()=>{say('一只受伤的白鹤落在你面前，翅膀上缠着一张纸条。');show([["救治白鹤",()=>{S.karma++;say('纸条写着：「血月教主惧怕太虚剑意。」白鹤长鸣而去。');S.flags.weak=1;note('得知教主惧怕太虚剑意');go();}],["取下纸条就走",()=>{say('纸条上的字已被血迹模糊。');go();}]]);},
   ()=>{say('你遇到一处山洞，洞口刻着「入者生死自负」。');show([[S.inv['火折子']?'点起火折子进洞':'摸黑进洞',()=>{if(S.inv['火折子']){say('火光照亮了洞壁，你避开地上的机关，在深处发现前辈刻下的剑招，还有一个积灰的木匣。');gainXp(35+S.lv*5);item(pick(['回气丹','白玉簪','银票（五十两）','灵蛇戒','飞镖']));go();return;}if(chance(.5)){say('洞中石壁刻着前辈的剑招，你观摩半日，大有所获。');gainXp(30+S.lv*5);}else{const d=R(8,18);hurt(d);say('漆黑中机关触发，毒箭射来！气血 -'+d+'（有火折子就好了）','bad');}go();}],["离开",go]]);},
-  ()=>{say('一名黑衣人与白衣书生激斗，书生已落下风。');show([["助书生",()=>startFight(Object.assign({named:1},ENEMY[4]),()=>{say('书生拱手：「在下是丐帮弟子，此恩必报。」赠你银两与线索。');meet('丐帮书生',{title:'丐帮弟子',sect:'丐帮',age:'二十七八',look:'白衣书生打扮，袖口却打着丐帮补丁',pers:'机敏重义',lv:'二流好手',rel:30,ev:'被你从黑衣人手下救出'});S.gold+=30;item('丐帮信物');addClue('丐帮弟子的情报');S.rep+=5;go();})],["助黑衣人",()=>{S.karma-=2;say('你与黑衣人联手击杀书生。黑衣人抛给你一袋金子：「血月教欢迎你这样的人。」');meet('黑衣使者',{title:'血月教使者',sect:'血月教',look:'黑巾蒙面',pers:'冷漠',lv:'一流好手',rel:20,ev:'与你联手杀了书生'});S.gold+=60;S.flags.dark=(S.flags.dark||0)+1;note('与血月教为伍');go();}],["袖手旁观",go]]);},
+  ()=>{say('一名黑衣人与白衣书生激斗，书生已落下风。');show([["助书生",()=>startFight(Object.assign({named:1},ENEMY[4]),()=>{say('书生拱手：「在下是丐帮弟子，此恩必报。」赠你银两与线索。');meet('丐帮书生',{title:'丐帮弟子',sect:'丐帮',age:'二十七八',look:'白衣书生打扮，袖口却打着丐帮补丁',pers:'机敏重义',lv:'二流好手',rel:30,ev:'被你从黑衣人手下救出'});S.gold+=30;item('丐帮信物');addClue('丐帮弟子的情报');S.rep+=5;rel('丐帮书生',12,'救命之恩',{major:1});if(S.npcs['丐帮书生'].rel>=30&&!(S.party||[]).includes('丐帮书生'))show([["邀他同行",()=>{say('书生大笑：「正合我意！」');const r=joinParty('丐帮书生','感你救命之恩，愿随你闯荡');if(r==='full')return swapPrompt(go);go();}],["就此别过",go]]);else go();})],["助黑衣人",()=>{S.karma-=2;say('你与黑衣人联手击杀书生。黑衣人抛给你一袋金子：「血月教欢迎你这样的人。」');meet('黑衣使者',{title:'血月教使者',sect:'血月教',look:'黑巾蒙面',pers:'冷漠',lv:'一流好手',rel:20,ev:'与你联手杀了书生'});S.gold+=60;S.flags.dark=(S.flags.dark||0)+1;note('与血月教为伍');go();}],["袖手旁观",go]]);},
   ()=>{say('一个酒鬼拉住你要比酒。');show([["比就比！",()=>{if(chance(.5+S.lv*.03)){say('你喝趴了酒鬼，他醒来哈哈大笑，竟是丐帮长老，传你内功一段。内力上限 +10');S.mmp+=10;S.mp=S.mmp;}else{say('你醉得不省人事，醒来钱袋少了一半。');S.gold=Math.floor(S.gold/2);}go();}],["婉拒",go]]);},
   ()=>{say('你在溪边采到一株灵芝。');item("灵芝");go();},
   ()=>{say('天色骤变，暴雨倾盆。你找了个破庙避雨，庙里已有一人烤火……');show([["与他共饮",()=>{say('那人自称「无名」，与你畅谈江湖，临别留下一句：「血月教总坛在北山血月峰。」');addClue('无名客的提点');go();}],["保持警惕",()=>{if(chance(.4)&&canAmbush()){say('他果然暴起偷袭！');startFight();}else{say('一夜无事，天明他已不见。');go();}}]]);}
@@ -773,9 +774,42 @@ function buildEnemy(e){const named=!!(e.named||e.boss||e.lv>=6||(e.hp||0)>=100);
  const fel=validEl(e.el)||NAMED_EL[e.n]||(named?hashEl(e.n):pick(EL5));
  return {n:e.n,el:fel,hp,mhp:hp,atk,def,lv:L,boss:!!e.boss,named,dodge:e.boss?.12:named?.1:.06,phase:1,pot:0,guard:false,bleed:0};}
 /* ===== 同伴助战（无独立气血，只做辅助） ===== */
-function party(){const L=[],ns=S.npcs||{};const bad=o=>o&&/死|亡|离|叛/.test(o.status||'');
- if(S.flags.allyOn&&!bad(ns['柳青']))L.push('柳青');
- Object.values(ns).forEach(o=>{if(o.n!=='柳青'&&/同伴/.test(o.sp||'')&&!bad(o)&&!L.includes(o.n))L.push(o.n);});return L.slice(0,5);}
+/* ===== 队伍：入队 / 离队 ===== */
+const PCAP=5,LEAVEW={分道扬镳:'分道扬镳',反目:'反目成仇',身故:'不幸身故',被掳:'被敌人掳走',暂离:'暂时离队去办事'};
+function ensureParty(){if(Array.isArray(S.party))return;const L=[],ns=S.npcs||{};const bad=o=>o&&/死|亡|离|叛/.test(o.status||'');
+ if(S.flags&&S.flags.allyOn&&!bad(ns['柳青']))L.push('柳青');Object.values(ns).forEach(o=>{if(o.n!=='柳青'&&/同伴/.test(o.sp||'')&&!bad(o)&&!L.includes(o.n))L.push(o.n);});
+ S.party=L.slice(0,PCAP);S.former=S.former||[];S.away=S.away||{};}
+function syncAlly(){S.flags.allyOn=S.party.includes('柳青')&&!S.away['柳青']?1:0;}
+function party(){ensureParty();return S.party.filter(n=>!S.away[n]&&!/死|亡|已故/.test(((S.npcs||{})[n]||{}).status||'')).slice(0,PCAP);}
+function joinParty(n,why){ensureParty();if(!n||n===S.name)return 'no';const o=(S.npcs||{})[n];if(o&&/死|亡|已故/.test(o.status||''))return 'no';
+ if(S.party.includes(n)){if(S.away[n]){delete S.away[n];push({k:'t',t:'【归队】'+n+'回到了队伍'});note(n+'归队');syncAlly();}return 'in';}
+ if(S.party.length>=PCAP){S.pendJoin=(S.pendJoin||[]).filter(x=>x!==n).concat(n);return 'full';}
+ S.party.push(n);if(o){o.sp=o.sp&&o.sp!=='同伴'?o.sp:'同伴';if(/离队|被掳|下落不明/.test(o.status||''))o.status='在世';}S.former=(S.former||[]).filter(x=>x.n!==n);
+ push({k:'t',t:'【入队】'+n+'加入了队伍'+(why?'——'+why:'')+'（队伍 '+S.party.length+'/'+PCAP+'）'});note(n+'入队'+(why?'：'+why:''));syncAlly();return 'ok';}
+function leaveParty(n,reason,detail,back){ensureParty();if(!S.party.includes(n))return false;reason=LEAVEW[reason]?reason:'分道扬镳';const o=(S.npcs||{})[n];
+ if(reason==='暂离'){S.away[n]={why:detail||'去办一件要紧事',back:(S.turn||0)+Math.max(2,Math.min(15,back||R(4,8)))};push({k:'t',t:'【暂离】'+n+'暂时离队'+(detail?'——'+detail:'')+'，过些日子会回来'});note(n+'暂离：'+(detail||''));syncAlly();return true;}
+ S.party=S.party.filter(x=>x!==n);delete S.away[n];
+ if(o){if(reason==='反目'){o.sp='';if(o.rel>-30)o.rel=Math.max(-100,o.rel-20);o.status='反目';}else if(reason==='身故')o.status='已故';else if(reason==='被掳')o.status='被掳';else{o.status='离队';if(o.sp==='同伴')o.sp='';}
+  o.ev.push('第'+S.day+'日 离队：'+(detail||LEAVEW[reason]));if(o.ev.length>12)o.ev=o.ev.slice(-12);}
+ S.former=(S.former||[]).filter(x=>x.n!==n).concat({n,why:LEAVEW[reason]+(detail?'：'+detail:''),day:S.day}).slice(-10);
+ push({k:'t',t:'【离队】'+n+LEAVEW[reason]+(detail?'——'+detail:'')});note(n+'离队：'+LEAVEW[reason]+(detail?'，'+detail:''));S.partyNote=(S.partyNote||'')+n+'已离队（'+LEAVEW[reason]+'）。';syncAlly();return true;}
+/* 队伍已满：换人或婉拒 */
+function swapPrompt(next){const n=(S.pendJoin||[]).shift();if(!n)return next();
+ say(n+'想要同行，可队伍已满（'+PCAP+'/'+PCAP+'）。','sys');
+ show(S.party.map(m=>['请'+m+'离队，换'+n+'加入',()=>{leaveParty(m,'分道扬镳','为'+n+'让出位置');rel(m,-4,'被请离队伍');joinParty(n);S.partyNote=(S.partyNote||'')+n+'替换'+m+'入队。';swapPrompt(next);}]).concat([['婉拒'+n,()=>{say('你婉言谢绝了'+n+'。');S.partyNote=(S.partyNote||'')+'队伍已满，主角婉拒了'+n+'入队。';swapPrompt(next);}]]));return true;}
+/* 每回合：暂离归队、关系过低、作恶太多、柳青暂离 */
+function partyTick(){ensureParty();if(S._pchk===S.turn)return false;S._pchk=S.turn;const t=S.turn||0;let ev=false;
+ Object.entries(S.away).forEach(([n,a])=>{if(t>=a.back){delete S.away[n];push({k:'t',t:'【归队】'+n+'办完事回来了'});note(n+'归队');if(n==='柳青'&&S.flags.liuAway===1){S.flags.liuAway=2;addClue('柳青带回的父亲旧友消息');}syncAlly();ev=true;}});
+ if(S._k0==null)S._k0=S.karma;if(S.karma<S._k0){const dk=S._k0-S.karma;party().forEach(n=>rel(n,-2*dk,'看不惯你的所作所为',{raw:1}));}S._k0=S.karma;
+ for(const n of party()){const o=(S.npcs||{})[n];if(!o)continue;
+  if(o.rel<-20&&chance(.5)){leaveParty(n,'反目','对你心灰意冷，拂袖而去');ev=true;}
+  else if(S.karma<=-8&&o.rel<60&&chance(.35)){leaveParty(n,'分道扬镳','道不同，不相为谋');ev=true;}}
+ if(S.party.includes('柳青')&&!S.away['柳青']&&!S.flags.liuAway&&(S.flags.liuT==null?(S.flags.liuT=t,0):t-S.flags.liuT>=12)){S.flags.liuAway=1;leaveParty('柳青','暂离','回青石镇打探父亲旧友的下落',6);ev=true;}
+ return ev;}
+function dismissBtn(n){const b=el('button','ghost','请其离队');b.onclick=()=>{if(b.dataset.ok){leaveParty(n,'分道扬镳','你请其离队');rel(n,-5,'被你请离队伍');renderRel();ui();save();}else{b.dataset.ok=1;b.textContent='确认离队？';}};return b;}
+function partyBox(){ensureParty();const box=el('div','pbox');box.append(el('strong',null,'队伍 '+S.party.length+'/'+PCAP));
+ if(!S.party.length)box.append(el('div','empty','暂无同伴。'));S.party.forEach(n=>{const r=el('div','prow');const o=(S.npcs||{})[n]||{};r.append(el('b',null,n),el('span',null,(S.away[n]?'暂离：'+S.away[n].why:(o.title||'同伴'))+' · 好感 '+(o.rel||0)));r.append(dismissBtn(n));box.append(r);});
+ if((S.former||[]).length){box.append(el('em',null,'旧日同伴'));S.former.slice().reverse().forEach(x=>box.append(el('div','prow gone',x.n+' · 第'+x.day+'日 '+x.why)));}return box;}
 const CW=[1,.7,.5,.35,.25];
 function buildComps(){return party().map((n,ix)=>{const o=(S.npcs||{})[n]||{rel:40};const r=Math.max(0,Math.min(100,o.rel||0));return {n,rel:r,w:CW[ix],p:(.3+r/100*.35)*CW[ix],eff:.85+r/100*.3};});}
 function compTurn(){const f=S.fight,cs=(f&&f.comps)||[];const pAtk=S._atk;S._atk=false;if(f.brk>0)f.brk--;
@@ -1003,7 +1037,7 @@ function sysPrompt(){return `你是一位武侠说书人，正在主持一场名
 3. 正文结尾留一个悬念或抉择点。不要在正文里写数值、不要提"游戏""JSON"。
 4. 根据主角等级安排对手强弱；主线线索要慢慢给，集齐 5 条线索且等级足够后，才让主角找到总坛、面对萧寒。
 5. 交手由游戏结算：玩家选招式，游戏算胜算、掷骰并给出交手结果卡，再请你按结果写打斗正文，你不必自己判胜负。战斗只是偶尔发生：开局前十回合以剧情、人物、探索为主，最多一场轻松的小冲突；两场战斗之间至少隔五六回合，过密的 fight 会被游戏忽略。多写对话、抉择、奇遇。需要真正交手时，用 fight 字段发起战斗（游戏会用回合制战斗系统结算），正文只写到双方拔刀对峙为止，不要写出胜负。
-【同伴】人物 special 写「同伴」即入队（最多 5 名），同伴会在回合制战斗中伺机助攻、疗伤、格挡、封穴或与主角合击；正文可描写同伴的配合。
+【队伍】随剧情自然地招募或分别，不要每回合都变：用 party 字段 {"join":[{"name":"人名","title":"身份","reason":"为何同行"}],"leave":[{"name":"人名","reason":"分道扬镳/反目/身故/被掳/暂离","detail":"一句话","return_in":暂离几回合后回来}]}；队伍最多 5 人，已满时游戏会让玩家换人或婉拒（见状态里的 队伍变动）；关系很差、主角屡屡作恶时同伴可能离开，同伴会在回合制战斗中伺机助攻、疗伤、格挡、封穴或与主角合击；正文可描写同伴的配合。
 6. 只有主角真正走到故事终点（手刃萧寒、投靠血月教、归隐等）才给 ending。
 【输出格式】先写正文；正文后单独一行写【状态】，下一行写一行 JSON（不要代码块），字段如下，没有变化的字段可省略：
 {"choices":["3~4 个接下来的行动选项，每个不超过 14 字"],"hp":气血增减整数,"qi":内力增减整数,"xp":修为增加整数(0~80),"silver":银两增减整数,"gain":[{"name":"物品名","category":"drug(药物)/tool(道具)/quest(任务物品)/misc(杂物)","desc":"一句描述","hp":回复气血(0~80),"mp":回复内力(0~60),"cure":是否解毒,"dmg":暗器伤害(0~40),"gift":可赠送时的好感值(0~15),"silver":银票面额(0~200),"book":"若是秘籍写可习得的武功名"}]（兵器护甲饰品写在 gear 里）,"lose":["失去的物品"],"skill":"新学会的武功名或空","skill_element":"该武功的五行（金/木/水/火/土）","skill_type":"迅捷/内功/阴柔/刚猛","skill_moves":[{"name":"招名","qi":内力5~30,"cd":冷却0~3,"power":威力0~18,"effect":"缴械/破防/闪避反击/连发/点穴/回气/灼烧 之一或空"}],"place":"主角现在所在地名","clue":"新得到的主线线索一句话或空","note":"值得记入日志的事一句话或空","fight":{"enemy":"对手名","hp":对手气血,"atk":对手攻击力,"element":"对手五行（金/木/水/火/土）","boss":false} 或 null,"ending":{"title":"四字结局名","text":"结局尾声 60~120 字"} 或 null,"npcs":[{"name":"人物名","title":"身份","sect":"门派","age":"年纪","look":"相貌（中文）","personality":"性情","level":"武功高低","rel":本回合好感变化整数，平常 -8~8，只有救命、背叛、表白、结义这类大事才可到 ±15 并同时写 "major":true,"special":"特殊关系如师徒/同伴/知己(需好感≥50)/恋人(≥65)/结义(≥70)/生死之交(≥85)，且必须有相应剧情事件，否则省略","status":"在世/已故/受伤等","where":"所在","event":"本回合与主角之间发生的事一句话"}] 本回合登场或关系有变的人物，最多 4 个，已登记过的人物只写变化的字段,"gear":[{"name":"装备名","type":"weapon/armor/accessory","atk":攻击加成(一般1~5,最多10),"def":防御加成(一般1~5,最多10),"element":"装备五行（金/木/水/火/土）"}] 本回合获得的兵器护甲饰品（不要同时写进 gain）,"img":"用英文写的本回合画面描述，40~70 词，只写场景、人物动作、表情、光线、构图，不写画风，主角用 the hero 指代","image_type":"本回合正文重点在描写某个人物（外貌、神态、登场亮相、对话特写）时填 character，否则（风景、打斗全景、环境）填 scene","character":"image_type 为 character 时，用英文写这个人物的外貌：性别、大致年龄（必须是成年人）、发型、五官气质、服饰颜色与款式，20~40 词；是主角就写 the hero"}
@@ -1012,11 +1046,11 @@ function sysPrompt(){return `你是一位武侠说书人，正在主持一场名
 【平衡】人物关系要慢慢培养：寒暄、送礼只加一两点，同样的举动反复做不再加；信任要靠共同经历的大事。战斗要有挑战性：对手会反击、会用毒、会防守，主角受伤是常态，不要让主角轻松碾压；兵器护甲要少给，几回合才偶尔给一件，加成多为 1~5，神兵利器极为罕见。`;}
 function aiState(){const f=S.flags;return {姓名:S.name,五行根骨:S.el,等级:S.lv,修为:S.xp+'/'+need(),气血:S.hp+'/'+S.mhp,内力:S.mp+'/'+S.mmp,银两:S.gold,侠名:S.rep,善恶:S.karma,地点:S.place||LOC[S.loc].n,第几日:S.day,
  行囊:Object.entries(S.inv).map(([k,v])=>k+'×'+v+'('+CATN[itemInfo(k).c]+')'),武功:mySkills().map(s=>s.n),装备:Object.keys(SLOTN).map(k=>SLOTN[k]+':'+(S.eq[k]?S.eq[k]+'('+(gearOf(S.eq[k]).el||'无属')+')':'无')),武功五行:mySkills().map(s=>s.n+':'+skillEl(s)),攻击:atkStat(),防御:defStat(),人物关系:npcList().map(n=>n.n+'('+(n.title||'')+'·'+(n.sp?n.sp+'·':'')+relLabel(n.rel)+n.rel+'·'+(n.status||'在世')+')'),同伴:f.allyOn?['柳青（师父之女）']:[],
- 主线线索数:Math.min(S.clues,5)+'/5',主线进度:{拜见云隐寺住持:!!f.monk,查探黑松林营地:!!f.camp,寻访沧浪江船夫:!!f.boat,夜探锦衣卫:!!f.palace,得到总坛地图:!!f.cultMap,已与教主决战:!!f.boss},已知教主弱点:!!f.weak,日志:S.notes.slice(0,12)};}
+ 主线线索数:Math.min(S.clues,5)+'/5',主线进度:{拜见云隐寺住持:!!f.monk,查探黑松林营地:!!f.camp,寻访沧浪江船夫:!!f.boat,夜探锦衣卫:!!f.palace,得到总坛地图:!!f.cultMap,已与教主决战:!!f.boss},已知教主弱点:!!f.weak,日志:S.notes.slice(0,12),队伍:(ensureParty(),S.party.map(n=>n+(S.away[n]?'(暂离)':''))),队伍上限:PCAP+(S.party.length>=PCAP?'（已满，再招人需换下一人）':''),旧日同伴:(S.former||[]).map(x=>x.n+':'+x.why),队伍变动:S.partyNote||''};}
 function aiMessages(text){const recent=S.log.slice(-14).filter(e=>e.k==='n'||e.k==='p').map(e=>(e.k==='p'?'【玩家】':'')+e.t).join('\n').slice(-1800);
  const msgs=[{role:'system',content:sysPrompt()},{role:'user',content:'【近况】\n'+recent+'\n\n【当前状态】\n'+JSON.stringify(aiState())}];
  (S.turns||[]).slice(-8).forEach(m=>msgs.push(m));
- msgs.push({role:'user',content:S.name+'的行动：'+text+'\n\n（请按格式续写：正文，然后【状态】和一行 JSON。）'});return msgs;}
+ S.partyNote='';msgs.push({role:'user',content:S.name+'的行动：'+text+'\n\n（请按格式续写：正文，然后【状态】和一行 JSON。）'});return msgs;}
 function splitOut(t){const i=t.indexOf('【状态】');if(i>=0)return{narr:t.slice(0,i).trim(),tail:t.slice(i+4)};
  const a=t.search(/\{\s*"choices"/);if(a>=0)return{narr:t.slice(0,a).trim(),tail:t.slice(a)};return{narr:t.trim(),tail:''};}
 function parseTail(tail){tail=String(tail||'').replace(/```(json)?/g,'');const a=tail.indexOf('{'),b=tail.lastIndexOf('}');if(a<0||b<=a)return null;try{return JSON.parse(tail.slice(a,b+1))}catch(_){return null}}
@@ -1074,9 +1108,12 @@ function applyAI(j){
   gainGear(n,{t,atk:int(g.atk,0,10),def:int(g.def,0,10),el:validEl(g.element)||hashEl(n)},true);});
  (Array.isArray(j.npcs)?j.npcs:[]).slice(0,4).forEach(x=>{if(!x||typeof x!=='object')return;const n=str(x.name,10);if(!n||n===S.name)return;
   const ev=str(x.event,40),major=x.major===true;let sp=str(x.special,6);const ex=S.npcs&&S.npcs[n];
-  if(sp&&ex&&!spOk(ex,sp,ev)&&ex.sp!==sp){sp='';}if(sp&&!ex&&SP_NEED[sp])sp='';if(/同伴/.test(sp)&&!party().includes(n)&&party().length>=5){sp='';say('队伍已满（最多 5 名同伴），'+n+'未能同行。','sys');}
+  if(sp&&ex&&!spOk(ex,sp,ev)&&ex.sp!==sp){sp='';}if(sp&&!ex&&SP_NEED[sp])sp='';const wantJoin=/同伴/.test(sp);if(wantJoin)sp='';
   meet(n,{title:str(x.title,20),sect:str(x.sect,12),age:str(x.age,10),look:str(x.look,80),pers:str(x.personality,40),lv:str(x.level,10),sp,status:str(x.status,16),where:str(x.where,16)});
-  const d=major?int(x.rel,-15,15):int(x.rel,-8,8);if(d)rel(n,d,ev,{raw:1});else if(ev){const o=S.npcs[n];o.ev.push('第'+S.day+'日 '+ev);if(o.ev.length>12)o.ev=o.ev.slice(-12);}});
+  const d=major?int(x.rel,-15,15):int(x.rel,-8,8);if(d)rel(n,d,ev,{raw:1});if(wantJoin)joinParty(n,ev);else if(ev){const o=S.npcs[n];o.ev.push('第'+S.day+'日 '+ev);if(o.ev.length>12)o.ev=o.ev.slice(-12);}});
+ {const P=j.party&&typeof j.party==='object'?j.party:{};(Array.isArray(P.join)?P.join:[]).slice(0,3).forEach(x=>{const o=typeof x==='string'?{name:x}:x;if(!o||typeof o!=='object')return;const n=str(o.name,10);if(!n||n===S.name)return;
+  meet(n,{title:str(o.title,20),sect:str(o.sect,12),age:str(o.age,10),look:str(o.look,80),pers:str(o.personality,40),lv:str(o.level,10)});joinParty(n,str(o.reason,30));});
+  (Array.isArray(P.leave)?P.leave:[]).slice(0,3).forEach(x=>{if(!x||typeof x!=='object')return;const n=str(x.name,10);if(!n)return;const r=String(x.reason||'');const k=Object.keys(LEAVEW).find(k=>r.includes(k))||(/暂|办事|回来/.test(r)?'暂离':/死|亡/.test(r)?'身故':/掳|擒|抓/.test(r)?'被掳':/反目|翻脸|决裂/.test(r)?'反目':'分道扬镳');leaveParty(n,k,str(x.detail,30),int(x.return_in,2,15));});}
  strs(j.lose,5,12).forEach(n=>{if(S.inv[n]){item(n,-1);say('失去【'+n+'】','bad');}});
  [str(j.skill,12)].concat(strs(j.skills,4,12)).map(x=>x.replace(/[（(【「].*$/,'').trim()).filter(Boolean).forEach((sk,ix)=>{const known=mySkills().some(s=>s.n===sk);
   if(!known){if(SKILLS.some(s=>s.n===sk))S.learned=(S.learned||[]).concat(sk);else{S.xsk=(S.xsk||[]).concat(sk);S.xskEl=S.xskEl||{};S.xskEl[sk]=(!ix&&validEl(j.skill_element))||hashEl(sk);}say('习得武功【'+sk+'】','sys');note('习得'+sk);}
@@ -1097,7 +1134,7 @@ function applyAI(j){
  if(j.fight&&typeof j.fight==='object'&&str(j.fight.enemy,12)){const F=j.fight;const boss=!!F.boss||/萧寒|教主/.test(F.enemy);if(!boss&&!canAmbush(5)){say('（一场冲突险些爆发，终究没有动起手来。）','sys');}else{
   const e={n:str(F.enemy,12),hp:int(F.hp||40,15,boss?320:200),atk:int(F.atk||8,3,boss?28:22),lv:Math.max(1,Math.min(10,Math.round(int(F.atk||8,3,28)/2.5))),boss,el:validEl(F.element)};if(boss)S.flags.boss=1;
   return startFight(e,()=>{if(aiOn())aiTurn('（战斗结束：我击败了'+e.n+'，气血还剩 '+S.hp+'）'+(boss?'——萧寒已败，请写出结局并给 ending。':'请接着写战后的情形。'),()=>{if(boss)end('hero');else go();});else if(boss)end('hero');else go();});}}
- show(opts);}
+ if(S.pendJoin&&S.pendJoin.length)return swapPrompt(()=>show(opts));show(opts);}
 
 
 /* ===== 场景配图（xAI Imagine） ===== */
