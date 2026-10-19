@@ -1193,9 +1193,34 @@ function compTurn(){const f=S.fight,cs=(f&&f.comps)||[];const pAtk=S._atk;S._atk
   else{S.combo=c.n;push({k:'r',w:true,t:c.n+'牵制',d:c.n+'缠住对手，为你下一招制造破绽（伤害 ×1.4）'});}}
  return false;}
 /* 遭遇冷却 */
+/* ===== 场景氛围与亲密举动（AI 上下文 + 代码保护） ===== */
+const TENDER=/亲(她|他|吻|一下|一口|昵|热)|吻|拥抱|抱(住|紧|着|她|他)|搂|依偎|偎|脱|宽衣|解衣|同房|同眠|共枕|洞房|温存|缠绵|过夜|一起睡|陪(她|他)|牵(起)?(她|他)?的?手|耳鬓|轻抚|抚(摸|着)?(她|他)|靠在.{0,4}(肩|怀)|枕在|相拥|共度良宵|侍寝/;
+function lastTurnOf(k){const t=S.turn||0,v=S[k];return v==null?999:Math.max(0,t-v);}
+function stageOf(n){const o=(S.npcs||{})[n]||{},sp=String(o.sp||'');return Math.max((wl().love||{})[n]||0,wl().spouse===n||/夫妻/.test(sp)?3:/恋人/.test(sp)?2:/知己/.test(sp)?1:0);}
+function loverOf(text){const w=wl(),all=npcList().filter(n=>!/死|亡|已故/.test(n.status||''));const recent=S.log.slice(-8).map(e=>e.t||'').join('');const L=all.filter(n=>stageOf(n.n)>=1).sort((a,b)=>stageOf(b.n)-stageOf(a.n));
+ const hit=L.find(n=>String(text).includes(n.n))||all.filter(n=>String(text).includes(n.n)).sort((a,b)=>b.rel-a.rel)[0]||L.find(n=>recent.includes(n.n))||(w.spouse&&S.npcs[w.spouse]?S.npcs[w.spouse]:null)||L.find(n=>(S.party||[]).includes(n.n))||L[0]||all.filter(n=>recent.includes(n.n)).sort((a,b)=>b.rel-a.rel)[0];
+ return hit?{n:hit.n,st:stageOf(hit.n)}:null;}
+function sceneCtx(){const dz=(LOC[S.loc]||{}).dz||0,sf=lastTurnOf('lastFight'),su=lastTurnOf('lastUnsol'),calm=(S.calmUntil||0)>(S.turn||0);
+ const mood=S.fight?'交手中':sf<3?'刚经历打斗，惊魂未定':calm?'温情时刻':dz>=2?'身处险地，需要戒备':'平静';
+ const lv=loverOf(AI.lastText||'');return {氛围:mood,距上次交手回合:sf>=999?'很久':sf,距上次有人找上门回合:su>=999?'很久':su,所在地:(S.place||LOC[S.loc].n)+(dz?'（险'+dz+'）':'（安全）'),温情时刻剩余回合:calm?S.calmUntil-(S.turn||0):0,
+  心上人:lv&&lv.st?{名字:lv.n,阶段:LOVE[lv.st-1],好感:(S.npcs[lv.n]||{}).rel}:'无'};}
+/* 玩家的亲密举动：生成给说书人的指引，并开启约 10 回合的温情时刻（期间不许出现新的威胁） */
+function tenderNote(text){if(!TENDER.test(text)||AGGRO_T.test(text))return '';const lv=loverOf(text);if(!lv)return '';const n=lv.n,o=S.npcs[n]||{},st=lv.st||0,dz=(LOC[S.loc]||{}).dz||0,sf=lastTurnOf('lastFight');
+ S.calmUntil=(S.turn||0)+10;S._tender={n,st};
+ const shaken=sf<2,risky=dz>=2;
+ if(st>=2&&!shaken&&!risky)return '（这是对'+n+'的亲密举动。'+n+'与'+S.name+'已是'+LOVE[st-1]+'，此刻安全平静：请让'+n+'温柔、你情我愿地回应，写出两人的情意与默契；只写成年人，含蓄留白，至多写到相拥、亲吻、烛影摇红，随即用转场（如「一夜无话」「窗外月色正好」）带过，不写任何露骨或身体细节。可在 npcs 里给'+n+' rel +2~4。本回合及之后若干回合都不要安排追兵、敌人、刺客或任何危险，fight 必须为 null。）';
+ if(st>=2)return '（这是对'+n+'的亲密举动。两人是'+LOVE[st-1]+'，但'+(shaken?'刚经历过打斗':'身处险地')+'：'+n+'可以温柔地握住'+S.name+'的手、轻声说等安顿下来再说，带着笑意和依恋婉拒，绝不动怒斥责；不要安排追兵或新的敌人，fight 为 null。）';
+ return '（这是对'+n+'的亲密举动，但两人目前只是'+(st===1?'知己':relLabel(o.rel||0))+'（好感 '+(o.rel||0)+'），还没到那一步：请让'+n+'含羞或认真地拒绝、岔开话题，可以带一点嗔怪，但不要翻脸、不要引来敌人；好感可小幅 -1~-3；fight 为 null。感情须循序渐进。）';}
+function calmGuard(j){if(!j||typeof j!=='object')return;const calm=(S.calmUntil||0)>(S.turn||0);if(!calm)return;const lt=String(AI.lastText||'');if(AGGRO.test(lt)&&!TENDER.test(lt))return;
+ if(j.fight&&!(j.fight.boss))j.fight=null;
+ if(Array.isArray(j.npcs))j.npcs=j.npcs.filter(x=>!(x&&typeof x==='object'&&!(S.npcs&&S.npcs[str(x.name,10)])&&int(x.rel,-15,15)<0));
+ const t=S._tender;if(t&&t.st>=2&&Array.isArray(j.npcs)){const x=j.npcs.find(x=>x&&str(x.name,10)===t.n);if(x&&int(x.rel,-15,15)<0)x.rel=1;}
+ if(t&&t.st>=2&&!(j.npcs||[]).some(x=>x&&str(x.name,10)===t.n)&&S.npcs[t.n])rel(t.n,2,'温存相伴',{act:'tender'});
+ S._tender=null;}
+const AGGRO_T=/打|杀|揍|扇|掐|绑|强|逼|威胁/;
 /* ===== 不请自来的战斗：统一闸门（所有来源共用冷却；太平模式全关） ===== */
 const FSTAT={};
-function unsolOk(src,p){if(!S||S.peace||S.over||S.fight)return false;const t=S.turn||0,dz=(LOC[S.loc]||{}).dz||0;if(t<12)return false;const cd=dz?18:35,last=S.lastUnsol==null?-99:S.lastUnsol;if(t-last<cd||!canAmbush(8))return false;if(!chance(Math.min(1,p*(dz?1+.5*dz:1))))return false;S.lastUnsol=t;FSTAT[src]=(FSTAT[src]||0)+1;return true;}
+function unsolOk(src,p){if(!S||S.peace||S.over||S.fight||(S.calmUntil||0)>(S.turn||0))return false;const t=S.turn||0,dz=(LOC[S.loc]||{}).dz||0;if(t<12)return false;const cd=dz?18:35,last=S.lastUnsol==null?-99:S.lastUnsol;if(t-last<cd||!canAmbush(8))return false;if(!chance(Math.min(1,p*(dz?1+.5*dz:1))))return false;S.lastUnsol=t;FSTAT[src]=(FSTAT[src]||0)+1;return true;}
 function setPeace(v){S.peace=!!v;say(S.peace?'太平模式已开启：不会再有人主动找你打架。想打，可以自己挑事、接悬赏或去比武。':'太平模式已关闭：江湖又有了些风波。','sys');}
 /* 可回避的对峙：应战 / 绕开 / 破财消灾，回避不受惩罚 */
 function confront(intro,enemy,win,o){o=o||{};say(intro);const after=o.after||go;const c=[['应战',()=>startFight(enemy||null,win||null)],[o.avoid||'绕开他们',()=>{say(o.avoidTxt||'你不愿纠缠，转身避开，对方也没追来。');after();}]];
@@ -1428,14 +1453,15 @@ function sysPrompt(){return `你是一位武侠说书人，正在主持一场名
 参考数值：游戏会按主角等级自动调整对手强度，你只需给出相对强弱（小喽啰气血 30~60、攻击 6~10；高手 100~150、攻击 14~20；萧寒标 boss:true）。一回合 hp 增减一般在 -25~+30 之间。
 【五行】战斗按五行相克结算：金克木、木克土、土克水、水克火、火克金；每个对手、武功、兵器、护甲都有五行，请在 fight/skill/gear 里写明，并在正文里偶尔点出相克之理（如以水克火）。
 【江湖系统】游戏里有：门派（少林/武当/峨眉/丐帮/唐门/血月教，拜师、升阶、门派任务、叛门）、江湖奇遇（稀有）、悬赏榜与声望称号、情缘（知己→恋人→成亲，需好感 50/65/80，多情会吃醋）、正邪路线、每 30 日一届武林大会（连胜三场为武林盟主）、自立帮派；另有可加入的江湖帮会（漕帮、天风镖盟属正，铁掌帮中立，巨鲸帮、青龙会属邪；帮众→香主→堂主→副帮主→帮主，有差事、月钱、帮战与宿敌，叛帮会被追杀），以及产业（客栈、酒楼、药铺、铁匠铺、当铺、镖局、田庄、货栈，由玩家在游戏菜单里购置，你不要白送产业）。状态里的「江湖」是当前情况，请把它们自然地织进剧情（不要每回合都提）。可在 JSON 里加 "jianghu":{"join_sect":"门派名","leave_sect":false,"sect_merit":门派功绩-20~30,"rep":声望-15~20,"bounty_done":false,"bounty_failed":false,"romance":{"name":"人名","stage":"知己/恋人/夫妻"},"route":"正道/邪派","qiyu":"奇遇名","gang":{"disciples":-10~10,"territory":-2~2},"tournament_win":false,"join_guild":"帮会名","leave_guild":false,"guild_merit":帮会功绩-20~30,"property_event":{"type":"玩家已有的产业类型","effect":"boom/slump/robbed"}}，只写有变化的字段；情缘须循序渐进，只写成年人，含蓄不露骨。
+【亲密场景】看状态里的「场景」：心上人阶段为恋人或夫妻、氛围平静时，玩家的亲昵举动（牵手、拥抱、亲吻、共度一夜等）是两情相悦的事，对方应温柔、主动、你情我愿地回应，写情意与默契，用留白和转场带过，绝不写露骨的身体或性描写；只有刚经历打斗、身处险地或人前时才可温柔婉拒，且不翻脸、不斥责。还未到恋人阶段时，操之过急会被含羞或认真地拒绝。亲密、温存、私下相处的场景里，不要安排追兵、刺客、敌人或任何新的威胁，fight 必须为 null；「温情时刻剩余回合」大于 0 时同样保持平静。
 【平衡】人物关系要慢慢培养：寒暄、送礼只加一两点，同样的举动反复做不再加；信任要靠共同经历的大事。战斗要有挑战性：对手会反击、会用毒、会防守，主角受伤是常态，不要让主角轻松碾压；兵器护甲要少给，几回合才偶尔给一件，加成多为 1~5，神兵利器极为罕见。`;}
 function aiState(){const f=S.flags;return {姓名:S.name,五行根骨:S.el,等级:S.lv,修为:S.xp+'/'+need(),气血:S.hp+'/'+S.mhp,内力:S.mp+'/'+S.mmp,银两:S.gold,侠名:S.rep,善恶:S.karma,地点:S.place||LOC[S.loc].n,第几日:S.day,
  行囊:Object.entries(S.inv).map(([k,v])=>k+'×'+v+'('+CATN[itemInfo(k).c]+')'),武功:mySkills().map(s=>s.n),装备:Object.keys(SLOTN).map(k=>SLOTN[k]+':'+(S.eq[k]?S.eq[k]+'('+(gearOf(S.eq[k]).el||'无属')+')':'无')),武功五行:mySkills().map(s=>s.n+':'+skillEl(s)),攻击:atkStat(),防御:defStat(),人物关系:npcList().map(n=>n.n+'('+(n.title||'')+'·'+(n.sp?n.sp+'·':'')+relLabel(n.rel)+n.rel+'·'+(n.status||'在世')+')'),同伴:f.allyOn?['柳青（师父之女）']:[],
- 主线已开启:!!f.mainOn,主线线索数:Math.min(S.clues,5)+'/5',主线进度:{拜见云隐寺住持:!!f.monk,查探黑松林营地:!!f.camp,寻访沧浪江船夫:!!f.boat,夜探锦衣卫:!!f.palace,得到总坛地图:!!f.cultMap,已与教主决战:!!f.boss},已知教主弱点:!!f.weak,江湖:Object.assign(wlState(),econState()),太平模式:!!S.peace,日志:S.notes.slice(0,12),队伍:(ensureParty(),S.party.map(n=>n+(S.away[n]?'(暂离)':''))),队伍上限:PCAP+(S.party.length>=PCAP?'（已满，再招人需换下一人）':''),旧日同伴:(S.former||[]).map(x=>x.n+':'+x.why),队伍变动:S.partyNote||''};}
-function aiMessages(text){const recent=S.log.slice(-14).filter(e=>e.k==='n'||e.k==='p').map(e=>(e.k==='p'?'【玩家】':'')+e.t).join('\n').slice(-1800);
+ 主线已开启:!!f.mainOn,主线线索数:Math.min(S.clues,5)+'/5',主线进度:{拜见云隐寺住持:!!f.monk,查探黑松林营地:!!f.camp,寻访沧浪江船夫:!!f.boat,夜探锦衣卫:!!f.palace,得到总坛地图:!!f.cultMap,已与教主决战:!!f.boss},已知教主弱点:!!f.weak,江湖:Object.assign(wlState(),econState()),太平模式:!!S.peace,场景:sceneCtx(),日志:S.notes.slice(0,12),队伍:(ensureParty(),S.party.map(n=>n+(S.away[n]?'(暂离)':''))),队伍上限:PCAP+(S.party.length>=PCAP?'（已满，再招人需换下一人）':''),旧日同伴:(S.former||[]).map(x=>x.n+':'+x.why),队伍变动:S.partyNote||''};}
+function aiMessages(text){const tn=tenderNote(text);const recent=S.log.slice(-14).filter(e=>e.k==='n'||e.k==='p').map(e=>(e.k==='p'?'【玩家】':'')+e.t).join('\n').slice(-1800);
  const msgs=[{role:'system',content:sysPrompt()},{role:'user',content:'【近况】\n'+recent+'\n\n【当前状态】\n'+JSON.stringify(aiState())}];
  (S.turns||[]).slice(-8).forEach(m=>msgs.push(m));
- S.partyNote='';msgs.push({role:'user',content:S.name+'的行动：'+text+'\n\n（请按格式续写：正文，然后【状态】和一行 JSON。）'});return msgs;}
+ S.partyNote='';const calmN=(S.calmUntil||0)>(S.turn||0)&&!tn?'（温情时刻：最近是温馨平静的私人时光，请延续这份氛围，不要安排追兵、敌人或新的危险，fight 为 null，除非玩家自己要动手。）':'';msgs.push({role:'user',content:S.name+'的行动：'+text+(tn?'\n'+tn:calmN?'\n'+calmN:'')+'\n\n（请按格式续写：正文，然后【状态】和一行 JSON。）'});return msgs;}
 function splitOut(t){const i=t.indexOf('【状态】');if(i>=0)return{narr:t.slice(0,i).trim(),tail:t.slice(i+4)};
  const a=t.search(/\{\s*"choices"/);if(a>=0)return{narr:t.slice(0,a).trim(),tail:t.slice(a)};return{narr:t.trim(),tail:''};}
 function parseTail(tail){tail=String(tail||'').replace(/```(json)?/g,'');const a=tail.indexOf('{'),b=tail.lastIndexOf('}');if(a<0||b<=a)return null;try{return JSON.parse(tail.slice(a,b+1))}catch(_){return null}}
@@ -1478,7 +1504,7 @@ async function aiTurn(text,fallback){AI.lastText=text;
   if(aborted){show(S._c||[]);return;}
   fallback();}
 }
-function applyAI(j){
+function applyAI(j){try{calmGuard(j);}catch(_){}
  const hp=int(j.hp,-80,S.mhp),qi=int(j.qi,-S.mmp,S.mmp),xp=int(j.xp,0,120),ag=int(j.silver,-500,500);
  if(hp){S.hp=Math.max(0,Math.min(S.mhp,S.hp+hp));say((hp>0?'气血 +':'气血 ')+hp,hp>0?'sys':'bad');}
  if(qi){S.mp=Math.max(0,Math.min(S.mmp,S.mp+qi));say((qi>0?'内力 +':'内力 ')+qi,qi>0?'sys':'bad');}
