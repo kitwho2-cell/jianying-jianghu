@@ -781,7 +781,7 @@ const QY=[
  {id:'fruit',t:'雪山灵果',d:'雪线之上，一株朱果正当成熟，旁边盘着一条白蟒。',c:[['斗蟒夺果',()=>{const d=R(10,20);hurt(d);S.mhp+=20;S.mmp+=20;S.hp=Math.max(1,S.hp);say('你被白蟒缠伤（-'+d+'），却吞下朱果：气血、内力上限各 +20','sys');}],['悄悄退走',()=>{item('灵芝');}]]},
  {id:'wreck',t:'沉船',d:'江底露出一艘前朝沉船，船舱里有一只铁箱。',c:[['潜水打开',()=>{S.gold+=150;item('银票（百两）');say('箱中满是官银。','sys');}],['报官',()=>{S.rep+=15;S.karma+=2;say('官府嘉奖你的义举，声望 +15','sys');}]]},
  {id:'wine',t:'醉仙酿',d:'一家荒村野店，老板娘说她的酒「三杯醉仙，五杯通神」。',c:[['连饮五杯',()=>{if(chance(.6)){gainXp(80+S.lv*8);learnSk('醉八仙','木','阴柔');}else{S.gold=Math.floor(S.gold*.7);say('你醉倒三天，醒来少了些银两。','bad');}}],['浅尝一杯',()=>{heal(S.mhp);say('酒香入腹，伤势尽复。','sys');}]]}];
-function qiyuReady(){const w=wl();return (S.turn||0)-w.qyT>=15&&w.qy.length<QY.length;}
+function qiyuReady(){const w=wl();return (S.turn||0)-Math.max(0,w.qyT)>=15&&w.qy.length<QY.length;}
 function qiyu(){const w=wl();const q=pick(QY.filter(x=>!w.qy.includes(x.id)));if(!q)return go();w.qy.push(q.id);w.qyT=S.turn||0;push({k:'t',t:'【奇遇·'+q.t+'】'});say(q.d);
  wshow(q.c.map(([l,fn])=>[l,()=>{fn();note('奇遇：'+q.t+'·'+l);wlDone('');}]));}
 /* ---- 3 悬赏 ---- */
@@ -999,17 +999,22 @@ function shop(){show([["药铺：金疮药15 · 回气丹20 · 解毒丹20",()=>
 /* ===== 战斗 ===== */
 function scaleEnemy(){const pool=ENEMY.filter(e=>e.lv<=S.lv+1&&e.lv!==7&&e.lv<6);return pick(pool.length?pool:ENEMY);}
 /* 敌人按主角等级成长；named=有名有姓/剧情对手，boss=萧寒 */
+/* 敌人气血按主角气血上限定档：普通 0.6~0.9 倍，劲敌 1.0~1.3 倍，宗师 1.5~2 倍 */
+function foeBand(named,boss){return boss?[1.5,2]:named?[1,1.3]:[.6,.9];}
+function foeStats(named,boss,t,easy){const [lo,hi]=foeBand(named,boss);const mh=Math.max(40,S.mhp);let k=lo+(hi-lo)*Math.max(0,Math.min(1,t));if(easy)k=Math.max(.5,k*.85);
+ const rate=boss?.11:named?(S.lv<=3?.065:.09):.07;const atk=Math.max(3,Math.round(mh*rate*(.9+.2*t)*(easy?.85:1)+defStat()*.5));return {hp:Math.max(12,Math.round(mh*k)),cap:Math.round(mh*hi),atk};}
 function buildEnemy(e){const named=!!(e.named||e.boss||e.lv>=6||(e.hp||0)>=100);let L=Math.max(e.lv||1,S.lv+(named?1:(chance(.3)?-1:0)));if(e.boss)L=Math.max(L,S.lv+2,10);
- const hf=Math.min(1.5,Math.max(.8,(e.hp||50)/50*.3+.7)),af=Math.min(1.3,Math.max(.85,(e.atk||10)/10*.25+.75));let hp=Math.round((16+15*L+1.7*L*L)*hf);let atk=Math.round((2+3.3*L)*af);let def=Math.floor(L*1.1);
- if(!named&&S.lv<=3){L=Math.max(1,S.lv-1);const wk=S.lv<=2?.8:.95;hp=Math.round((16+15*L+1.7*L*L)*hf*wk);atk=Math.round((2+3.3*L)*af*wk);def=Math.floor(L*1.1);}
- if(e.easy){hp=Math.round(hp*.8);atk=Math.max(2,Math.round(atk*.85));}
- if(named){hp=Math.round(hp*1.3);atk=Math.round(atk*1.05);def+=1;}
- if(e.boss){hp=Math.round(310+S.lv*28);atk=Math.round(12+S.lv*1.8);def=Math.round(7+S.lv*.5);}
- {const k=(named||e.boss)?.85:.78;hp=Math.round(hp*k);atk=Math.max(2,Math.round(atk*k));}
- if(!e.boss){const dz=(LOC[S.loc]||{}).dz||0;if(dz){hp=Math.round(hp*(1+.18*dz));atk=Math.round(atk*(1+.12*dz));L+=dz;}}
- if(e.wounded)hp=Math.round(hp*.6);
+ if(!named&&S.lv<=3)L=Math.max(1,S.lv-1);
+ const dz=e.boss?0:((LOC[S.loc]||{}).dz||0);if(dz)L+=dz;
+ let t=Math.max(0,Math.min(1,(e.hp||60)/120))*.6+Math.random()*.4+dz*.1;t=Math.min(1,t);if(e.boss)t=.3+Math.random()*.3;
+ const st=foeStats(named,!!e.boss,t,!named&&(e.easy||S.lv<=3));let hp=st.hp;if(e.wounded)hp=Math.round(hp*.6);
+ const def=Math.floor(L*.7);
  const fel=validEl(e.el)||NAMED_EL[e.n]||(named?hashEl(e.n):pick(EL5));
- return {n:e.n,el:fel,hp,mhp:hp,atk,def,lv:L,boss:!!e.boss,named,dodge:e.boss?.12:named?.1:.06,phase:1,pot:0,guard:false,bleed:0};}
+ return {n:e.n,el:fel,hp,mhp:hp,cap:e.wounded?hp:st.cap,atk:st.atk,def,lv:L,boss:!!e.boss,named,dodge:e.boss?.12:named?.1:.06,phase:1,pot:0,guard:false,bleed:0,v2:1};}
+/* 主角伤害随气血上限同步成长，保证普通战 2~5 回合 */
+function pDmgK(){const L=S.lv;return Math.max(.4,Math.min(4,S.mhp*.4*(1+Math.max(0,4-L)*.1)/(8+4.5*L+.15*L*L)));}
+/* 旧存档中的进行中战斗：按新标准重算 */
+function fixFoe(){const f=S&&S.fight;if(!f||f.v2)return;const r=Math.max(.05,Math.min(1,(f.hp||1)/(f.mhp||1)));const st=foeStats(!!f.named,!!f.boss,.5,false);f.mhp=st.hp;f.cap=st.cap;f.hp=Math.max(1,Math.round(st.hp*r));f.atk=Math.round(st.atk*(f.phase>1?1.25:1));f.def=Math.min(f.def||0,Math.floor((f.lv||S.lv)*.7));f.v2=1;}
 /* ===== 同伴助战（无独立气血，只做辅助） ===== */
 /* ===== 队伍：入队 / 离队 ===== */
 const PCAP=5,LEAVEW={分道扬镳:'分道扬镳',反目:'反目成仇',身故:'不幸身故',被掳:'被敌人掳走',暂离:'暂时离队去办事'};
@@ -1126,15 +1131,15 @@ function duel(text){const f=S.fight;if(!f||S.over)return;text=String(text||'').t
  // 我方伤害
  let dmg=0;const fx=new Set();plan.list.forEach((x,k)=>{const e=skillEl(x.s),mul=elMul(e,f.el);let d=((R(5,9)+atkStat())*x.s.m*(1+(x.m.p||0)/60)-(f.brk||x.m.fx==='pf'?0:f.def))*mul*[1,.45,.3][k];if(x.m.fx==='lf')d*=1.45;dmg+=Math.max(1,d);if(x.m.fx)fx.add(x.m.fx);});
  if(S.combo){dmg*=1.4;S.combo=null;}if(f.guard){dmg*=.6;f.guard=false;}if(chance((S.el==='火'?.18:.1)+accSum('crit')))dmg*=1.5;if(f.boss&&plan.list.some(x=>x.s.n==='太虚剑意')&&S.flags.weak)dmg*=1.4;
- dmg=Math.max(1,Math.round(dmg*O[2]*(1.08-S.lv*.03)));f.hp-=dmg;S._atk=true;const notes=[];
+ dmg=Math.max(1,Math.round(dmg*O[2]*pDmgK()));f.hp-=dmg;S._atk=true;const notes=[];
  if(O[2]>=.65){if(fx.has('jx')){f.disarm=2;notes.push('缴械：对手兵器脱手');}if(fx.has('pf')){f.brk=2;notes.push('破防：护体被破');}if(fx.has('dx')){f.seal=1;notes.push('点穴：对手下回合动弹不得');}if(fx.has('zs')){f.ebleed=3;notes.push('灼烧：对手持续掉血');}}
  if(fx.has('hq')){const h=8+S.lv*2;heal(h);notes.push('回气：气血 +'+h);}if(SHENG5[me]===S.el){S.mp=Math.min(S.mmp,S.mp+3);notes.push(me+'生'+S.el+'，内力 +3');}
  // 同伴助战
  let ended=f.hp<=0;if(!ended&&compTurn())ended=true;
  let taken=0;if(!ended){if(f.seal){f.seal=0;notes.push(f.n+'穴道受制，没能还手');}else{
-   let raw=R(Math.ceil(f.atk*.75),f.atk)*(f.disarm?.7:1)*(1+S.lv*.07);const eem=elMul(f.el,S.el),ar=armorEl(),am=ar?(KE[ar]===f.el?.85:KE[f.el]===ar?1.15:1):1;
+   let raw=R(Math.ceil(f.atk*.75),f.atk)*(f.disarm?.7:1);const eem=elMul(f.el,S.el),ar=armorEl(),am=ar?(KE[ar]===f.el?.85:KE[f.el]===ar?1.15:1):1;
    let em2=O[3];if(fx.has('sb')&&em2>=.8){em2*=.5;const c=Math.round(dmg*.35)+1;f.hp-=c;notes.push('闪避反击：卸开来招，回敬 '+c);}
-   taken=em2?Math.max(1,Math.round((raw-defStat())*eem*am*em2)):0;if(taken&&chance(.08+(S.el==='水'?.04:0)+accSum('dodge'))){taken=0;notes.push('身法一晃，躲过还击');}
+   taken=em2?Math.max(1,Math.round((raw-defStat()*.5)*eem*am*em2)):0;if(taken&&chance(.08+(S.el==='水'?.04:0)+accSum('dodge'))){taken=0;notes.push('身法一晃，躲过还击');}
    if(taken&&f.block){taken=Math.max(1,Math.round(taken*.5));notes.push(f.block+'替你格开大半');f.block=null;}
    if(O[0]==='吃了亏'&&!f.bleed&&chance(.3)){f.bleed=3;notes.push('你中了'+(f.boss?'血月掌毒':'毒伤')+'（3 回合）');}hurt(taken);}
   if(f.disarm)f.disarm--;if(f.brk)f.brk--;}
@@ -1150,7 +1155,7 @@ async function narrate(c,text){const nEl=el('div','n wait','……');$('log').ap
  catch(e){nEl.remove();setBusy(false);}
  if(S.fight)fightMenu();}
 function startFight(e,win){e=e||scaleEnemy();if(!e.named&&!e.boss&&(S.turn||0)<=10)e=Object.assign({easy:1},e);S.fight=buildEnemy(e);S._win=win||null;const f=S.fight;S.lastFight=S.turn||0;S.fights=(S.fights||0)+1;S.cd={};f.cat=f.boss?'内功':CATS[(f.named?hsh(f.n):R(0,99))%4];const _a=document.getElementById('act');if(_a)_a.value='';
- f.comps=buildComps();if(f.comps.length){const k=1+.15*f.comps.reduce((a,c)=>a+c.w,0);f.hp=f.mhp=Math.round(f.mhp*k);say(f.comps.map(c=>c.n).join('、')+'与你并肩迎敌，会伺机助战','sys');}
+ f.comps=buildComps();if(f.comps.length){const k=1+.06*f.comps.reduce((a,c)=>a+c.w,0);f.hp=f.mhp=Math.round(Math.min(f.mhp*k,Math.max(f.mhp,f.cap||f.mhp)));say(f.comps.map(c=>c.n).join('、')+'与你并肩迎敌，会伺机助战','sys');}
  say('⚔ 遭遇【'+f.n+'】'+(f.boss?'（宗师）':f.named?'（劲敌）':'')+' · '+f.el+'属 · 气血 '+f.hp+' · 攻 '+f.atk+' · 防 '+f.def,'set');fightMenu();}
 function fightMenu(){const f=S.fight;$('status').textContent='【'+f.n+'·'+f.el+'·'+f.cat+'】气血 '+Math.max(0,f.hp)+'/'+f.mhp+(f.guard?' · 架势防守':'')+(f.bleed?' · 你中毒/流血':'')+' · 用药 '+f.pot+'/2';fightChips();}
 function attack(s){const f=S.fight;if(S.mp<s.mp){say('内力不足！','bad');return fightMenu();}S.mp-=s.mp;S._guard=false;
@@ -1159,7 +1164,7 @@ function attack(s){const f=S.fight;if(S.mp<s.mp){say('内力不足！','bad');re
  if(SHENG5[ae]===S.el){S.mp=Math.min(S.mmp,S.mp+3);m+=ae+'生'+S.el+'，内力回流 +3。';}if(chance((S.el==='火'?.18:.1)+accSum('crit'))){d=Math.round(d*1.7);m+='会心一击！';}
  if(f.guard){d=Math.round(d*.5);m+='对方架势严密，劲力被卸去一半。';f.guard=false;}
  if(f.boss&&s.n==="太虚剑意"&&S.flags.weak){d=Math.round(d*1.5);m+='正中破绽！';}
- d=Math.max(1,d);f.hp-=d;S._atk=true;let t='你使出'+s.n+'，造成 '+d+' 点伤害';const left=()=>'（剩余 '+Math.max(0,f.hp)+'/'+f.mhp+'）';
+ d=Math.max(1,Math.round(d*pDmgK()));f.hp-=d;S._atk=true;let t='你使出'+s.n+'，造成 '+d+' 点伤害';const left=()=>'（剩余 '+Math.max(0,f.hp)+'/'+f.mhp+'）';
  t+=left();
  push({k:'r',w:true,t:s.n,m,d:t});
  if(f.hp<=0)return winFight();phaseCheck();enemyTurn();}
@@ -1173,7 +1178,7 @@ function enemyTurn(){const f=S.fight;let note='';tickCd();if(compTurn())return w
  if(r<.1){f.guard=true;push({k:'r',w:false,t:f.n+'摆出守势',d:'下一招你的伤害减半'});S._guard=false;return fightMenu();}
  if(r<.22){mult=1.5;name=f.n+'蓄力重击';}else if(r<.37&&!f.bleed){f.bleed=3;mult=.8;name=f.n+(f.boss?'血月掌·蚀骨':pick(['淬毒暗器','阴狠一刀']));note='，你中了毒伤（3 回合）';}
  if(chance(.08+(S.el==='水'?.04:0)+accSum('dodge'))){push({k:'r',w:true,t:'闪避',d:f.n+'一招落空'});S._guard=false;return fightMenu();}
- const raw=Math.round(R(Math.ceil(f.atk*.75),f.atk)*mult);const em=elMul(f.el,S.el),ar=armorEl(),am=ar?(KE[ar]===f.el?.85:KE[f.el]===ar?1.15:1):1;let d=Math.max(1,Math.round((raw-defStat())*em*am));
+ const raw=Math.round(R(Math.ceil(f.atk*.75),f.atk)*mult);const em=elMul(f.el,S.el),ar=armorEl(),am=ar?(KE[ar]===f.el?.85:KE[f.el]===ar?1.15:1):1;let d=Math.max(1,Math.round((raw-defStat()*.5)*em*am));
  if(em>1)note+='（'+f.el+'克'+S.el+'，你吃了大亏）';else if(em<1)note+='（'+S.el+'克'+f.el+'，你稳稳接下）';if(am<1)note+='（'+ar+'甲克'+f.el+'，减伤）';else if(am>1)note+='（'+f.el+'克'+ar+'甲，破防）';if(S._guard)d=Math.max(1,Math.round(d*.5));if(f.block){d=Math.max(1,Math.round(d*.5));note+='（'+f.block+'替你格开大半）';f.block=null;}S._guard=false;hurt(d);
  push({k:'r',w:false,t:name,d:'气血 -'+d+note+'（剩 '+S.hp+'）'});
  if(S.hp<=0){S._lastFoe=(S.fight&&(S.fight.named||S.fight.boss))?'n':'c';S.fight=null;return death();}fightMenu();}
@@ -1460,7 +1465,7 @@ async function openSaveIO(){const {o,b}=modal('存档');
  const go=el('button','go2 team','导入并继续');go.onclick=async()=>{try{const s=await unpackSave(t2.value);importSave(s);o.remove();}catch(e){msg.textContent='导入失败：'+(e&&e.message||e);msg.style.color='var(--cinnabar)';}};
  bx2.append(go,pf);im.append(bx2,fi,msg);if(S&&!S.over)im.append(el('div','rhint','导入会切换到导入的存档，当前进度已自动保存在存档列表里（若环境支持保存）。'));b.append(im);
  const cl=el('button','rclose','关闭');cl.onclick=()=>o.remove();b.append(cl);}
-function importSave(s){if(S)save();S=s;SLOT='s'+Date.now().toString(36)+'i';$('menu').hidden=true;closeAll();migrate();redraw();
+function importSave(s){if(S)save();S=s;SLOT='s'+Date.now().toString(36)+'i';$('menu').hidden=true;closeAll();migrate();try{fixFoe();}catch(_){}redraw();
  if(S.over){ui();$('chips').textContent='';$('status').textContent='故事结束';save();return;}
  $('status').textContent='点上面的选项，或写下你的行动';say('—— 存档已导入，续上前缘 ——','bad');S._skip=1;S._win=null;if(S.fight)S.fight.win=null;go();}
 function storageNotice(){const n=$('storeNote');if(!n)return;n.hidden=!STORE_RISK;n.textContent=LS_OK?'当前环境可能不保存进度（例如应用内预览），请定期点「存档」导出存档码。':'当前环境不能保存进度（浏览器存储不可用），游戏只在本次打开期间有效，请定期导出存档；API Key 也需要每次重新填写。';}
@@ -1477,7 +1482,7 @@ function renderSlots(){const box=$('slots');box.textContent='';const idx=lsGet(I
  ids.forEach(id=>{const row=el('div','slot');const g=el('button','slotGo');g.append(el('strong',null,idx[id].sum),el('span',null,fmtTime(idx[id].t)));g.onclick=()=>loadSlot(id);
   const del=el('button','slotDel','删除');let armed=false;del.onclick=()=>{if(!armed){armed=true;del.textContent='确认删除';del.classList.add('armed');setTimeout(()=>{armed=false;del.textContent='删除';del.classList.remove('armed');},4000);return;}
    lsDel(SAVE+'~'+id);const ix=lsGet(IDX)||{};delete ix[id];lsSet(IDX,ix);renderSlots();};row.append(g,del);box.append(row);});}
-function loadSlot(id){const s=lsGet(SAVE+'~'+id);if(!s){renderSlots();return;}S=s;SLOT=id;migrate();$('menu').hidden=true;redraw();
+function loadSlot(id){const s=lsGet(SAVE+'~'+id);if(!s){renderSlots();return;}S=s;SLOT=id;migrate();try{fixFoe();}catch(_){}$("menu").hidden=true;redraw();
  if(S.over){ui();$('chips').textContent='';$('status').textContent='故事结束';return;}
  $('status').textContent='点上面的选项，或写下你的行动';say('—— 续上前缘 ——','bad');S._skip=1;S._win=null;
  if(S.fight){S.fight.win=null;}go();}
