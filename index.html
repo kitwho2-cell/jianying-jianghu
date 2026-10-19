@@ -337,6 +337,7 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
       <button id="jBtn" aria-expanded="false">日志 <b id="jN">0</b></button>
       <button id="rBtn" aria-expanded="false">关系 <b id="rN">0</b></button>
       <button id="wBtn" aria-expanded="false">江湖</button>
+      <button id="pBtn" aria-expanded="false">产业 <b id="pN">0</b></button>
       <button id="aBtn" aria-expanded="false">AI <b id="aN">关</b></button>
     </div>
     <div class="drawer" id="sPanel" hidden></div>
@@ -347,6 +348,7 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
     <div class="drawer" id="jPanel" hidden></div>
     <div class="drawer rel" id="rPanel" hidden></div>
     <div class="drawer" id="wPanel" hidden></div>
+    <div class="drawer" id="pPanel" hidden></div>
     <div class="drawer" id="aPanel" hidden></div>
     <div class="party" id="party" hidden></div>
   </header>
@@ -485,7 +487,7 @@ function ui(){foeCard();if(!S||!S.fight){const mb=$('moves');if(mb)mb.hidden=tru
  $('where').textContent=(S.place||LOC[S.loc].n)+' · 第'+S.day+'日';$('aN').textContent=aiOn()?'开':'关';
  $('hp').textContent=S.hp+'/'+S.mhp;$('qi').textContent=S.mp+'/'+S.mmp;$('xp').textContent=S.xp+'/'+need();
  $('hpB').style.width=(S.hp/S.mhp*100)+'%';$('qiB').style.width=(S.mp/S.mmp*100)+'%';$('xpB').style.width=(S.xp/need()*100)+'%';
- $('qN').textContent=sagaActive();$('mN').textContent=S.seen.length;$('kN').textContent=mySkills().length;
+ $('qN').textContent=sagaActive();$('pN').textContent=props().length;$('mN').textContent=S.seen.length;$('kN').textContent=mySkills().length;
  $('iN').textContent=Object.values(S.inv).reduce((a,b)=>a+b,0);$('jN').textContent=S.notes.length;$('rN').textContent=npcList().length;
  ensureParty();const pt=$('party'),pa=S.party;pt.hidden=!pa.length;pt.textContent='';if(pa.length){pt.append('队伍 '+S.party.length+'/'+PCAP+'：');S.party.forEach(n=>{const b=el('button',null,n+(S.away[n]?'（暂离）':''));b.onclick=()=>{const rb=$('rBtn');if(rb)rb.click();};pt.append(b);});}
  renderPanels();}
@@ -507,8 +509,8 @@ function renderPanels(){
  renderInv();
  p=$('jPanel');p.textContent='';const rows=el('div','rows');if(!S.notes.length)rows.append(el('div','empty','还没有记事。'));
  S.notes.slice(0,40).forEach(t=>{const r=el('div','rw');r.append(el('strong',null,t));rows.append(r);});p.append(rows);closer(p);
- if(typeof renderAI==='function')renderAI();renderRel();renderWL();}
-const PANELS=[['sBtn','sPanel'],['qBtn','qPanel'],['mBtn','mPanel'],['kBtn','kPanel'],['iBtn','iPanel'],['jBtn','jPanel'],['rBtn','rPanel'],['wBtn','wPanel'],['aBtn','aPanel']];
+ if(typeof renderAI==='function')renderAI();renderRel();renderWL();renderProp();}
+const PANELS=[['sBtn','sPanel'],['qBtn','qPanel'],['mBtn','mPanel'],['kBtn','kPanel'],['iBtn','iPanel'],['jBtn','jPanel'],['rBtn','rPanel'],['wBtn','wPanel'],['pBtn','pPanel'],['aBtn','aPanel']];
 function closeAll(){PANELS.forEach(([b,p])=>{$(p).hidden=true;$(b).setAttribute('aria-expanded','false');});}
 function toggle(bId,pId){const open=$(pId).hidden;closeAll();$(pId).hidden=!open;$(bId).setAttribute('aria-expanded',String(open));}
 PANELS.forEach(([b,p])=>{$(b).onclick=()=>toggle(b,p);});
@@ -522,7 +524,7 @@ const weaponEl=()=>{const g=S.eq&&S.eq.weapon&&gearOf(S.eq.weapon);return (g&&g.
 const armorEl=()=>{const g=S.eq&&S.eq.armor&&gearOf(S.eq.armor);return (g&&g.el)||null;};
 const SLOTN={weapon:'兵器',armor:'护甲',acc:'饰品'};
 const gearOf=n=>(S.gearDef&&S.gearDef[n])||GEAR[n]||null;
-function atkStat(){let a=S.lv*2+(S.el==='金'?2:0),g2=0;Object.values(S.eq).forEach(n=>{const g=n&&gearOf(n);if(g)g2+=g.atk;});return a+Math.round(g2*.7)+((S.buff&&S.buff.atk)||0);}
+function atkStat(){let a=S.lv*2+(S.el==='金'?2:0),g2=0;Object.values(S.eq).forEach(n=>{const g=n&&gearOf(n);if(g)g2+=g.atk;});return a+Math.round(g2*.7)+((S.buff&&S.buff.atk)||0)+(S.wl&&S.wl.bh&&S.wl.bh.g==='铁掌帮'?(S.wl.bh.rank+1)*2:0);}
 function defStat(){let d=Math.floor(S.lv/2)+(S.el==='土'?1:0),g2=0;Object.values(S.eq).forEach(n=>{const g=n&&gearOf(n);if(g)g2+=g.def;});return d+Math.round(g2*.8)+((S.buff&&S.buff.def)||0);}
 function gearTxt(g){return [SLOTN[g.t]+(g.el?'·'+g.el:''),g.atk?'攻+'+g.atk:'',g.def?'防+'+g.def:''].filter(Boolean).join('·');}
 function equip(n,quiet){const g=gearOf(n);if(!g||!S.inv[n])return;const old=S.eq[g.t];const og=old&&gearOf(old);if(og&&og.mmp){S.mmp-=og.mmp;}S.eq[g.t]=n;if(g.mmp)S.mmp+=g.mmp;S.mp=Math.min(S.mp,S.mmp);if(!quiet)say('你'+(old?'卸下'+old+'，':'')+'装备上【'+n+'】（'+gearTxt(g)+'）。','sys');}
@@ -730,8 +732,8 @@ function rumors(){const c=[];if(!S.flags.mainOn)c.push(['追查师父之死（�
 /* 行商：本地买货，异地卖出 */
 const GOODS={town:'铁器',city:'丝绸',south:'茶叶',river:'鲜鱼干',shaolin:'素斋香料',wudang:'道家丹砂',emei:'峨眉雪芽',tang:'蜀锦',desert:'西域香料',forest:'山货皮毛',temple:'佛珠'};
 function trade(){const g=S.goods,here=GOODS[S.loc];const c=[];
- if(g&&g.from!==S.loc)c.push(['卖出'+g.n+'×'+g.q,()=>{const pr=Math.round(g.cost*(1.3+Math.random()*.6+(LOC[S.loc].dz||0)*.15));const tot=pr*g.q;S.gold+=tot;S.goods=null;say('你把'+g.n+'卖了个好价钱，银两 +'+tot+'（每件 '+pr+'）','sys');S.rep+=1;wlDone('行商卖出'+g.n);}]);
- if(here&&!g)c.push(['收购'+here+'（每件12两）',()=>{const q=Math.min(10,Math.floor(S.gold/12));if(!q){say('银两不够。','bad');return wlBack();}S.gold-=q*12;S.goods={n:here,q,cost:12,from:S.loc};say('你收了'+q+'件'+here+'，运到别处能卖好价。','sys');wlDone('');}]);
+ if(g&&g.from!==S.loc)c.push(['卖出'+g.n+'×'+g.q,()=>{const pr=Math.round(g.cost*(1.3+Math.random()*.6+(LOC[S.loc].dz||0)*.15)*tradeSellMul());const tot=pr*g.q;S.gold+=tot;S.goods=null;say('你把'+g.n+'卖了个好价钱，银两 +'+tot+'（每件 '+pr+'）','sys');S.rep+=1;wlDone('行商卖出'+g.n);}]);
+ if(here&&!g){const uc=tradeBuyCost();c.push(['收购'+here+'（每件'+uc+'两）',()=>{const q=Math.min(10,Math.floor(S.gold/uc));if(!q){say('银两不够。','bad');return wlBack();}S.gold-=q*uc;S.goods={n:here,q,cost:12,from:S.loc};say('你收了'+q+'件'+here+'，运到别处能卖好价。','sys');wlDone('');}]);}
  if(!c.length)say(g?'这里卖不上价，'+g.n+'得运到别处去。':'这里没什么好货。');c.push(['返回',wlBack]);wshow(c);}
 /* ===== 江湖系统：门派 / 奇遇 / 悬赏声望 / 情缘 / 正邪 / 武林大会 / 帮派 ===== */
 const SECTS={
@@ -755,7 +757,7 @@ function wlDone(t){if(S.over)return;if(t)note(t);if(aiOn()&&!S.fight){if(t)retur
 const spar=(e,win,lose)=>{S._spar=lose;startFight(Object.assign({named:1},e),()=>{S._spar=null;win();});};
 /* ---- 1 门派 ---- */
 function sectMenu(){const w=wl();if(!w.sect){const ks=Object.keys(SECTS).filter(k=>!w.left.includes(k));
-  return wshow(ks.map(k=>{const s=SECTS[k];const ok=S.lv>=s.need.lv&&S.karma>=s.need.karma&&(s.need.maxKarma==null||S.karma<=s.need.maxKarma);return ['拜入'+k+(ok?'':'（需等级'+s.need.lv+(s.need.maxKarma!=null?'、善恶≤'+s.need.maxKarma:s.need.karma>0?'、善恶≥'+s.need.karma:'')+'）'),()=>ok?sectTest(k):(say(k+'的门人摇头：「你还不够格。」','bad'),sectMenu())];}).concat([['返回',wlMenu]]));}
+  return wshow(ks.map(k=>{const s=SECTS[k];const ok=S.lv>=s.need.lv&&S.karma>=s.need.karma&&(s.need.maxKarma==null||S.karma<=s.need.maxKarma)&&sectGuildOk(k);return ['拜入'+k+(ok?'':'（需等级'+s.need.lv+(s.need.maxKarma!=null?'、善恶≤'+s.need.maxKarma:s.need.karma>0?'、善恶≥'+s.need.karma:'')+'）'),()=>ok?sectTest(k):(say(k+'的门人摇头：「你还不够格。」','bad'),sectMenu())];}).concat([['返回',wlMenu]]));}
  const s=SECTS[w.sect];wshow([[w.sect+'门派任务',sectMission],['向师长请教武功',sectSkill],[w.srank>=3?'竞选掌门':'叛出师门',w.srank>=3?sectHead:sectLeave],['返回',wlMenu]]);}
 function sectTest(k){const s=SECTS[k];say('你登门求艺。'+k+'执事道：「'+s.d+'想入我门，先过一关。」');
  wshow([['接受比试',()=>spar({n:k+'执事',hp:50,atk:9,lv:Math.max(1,S.lv),el:s.el},()=>sectJoin(k),()=>{say('你败下阵来。执事道：「根骨尚可，改日再来。」');wlDone('拜师'+k+'未成');})],
@@ -792,7 +794,7 @@ function genBounties(){const w=wl();if(S.day-w.bDay<5&&w.bty.length)return;w.bDa
 function bountyMenu(){const w=wl();genBounties();if(w.bAct){const b=w.bAct;return wshow([['（进行中）'+b.t+' · 去'+LOC[b.loc].n+' · 剩'+Math.max(0,b.until-S.day)+'日',()=>{say('悬赏须到'+LOC[b.loc].n+'才能办。');bountyMenu();}],['放弃悬赏（声望-3）',()=>{w.bAct=null;S.rep=Math.max(0,S.rep-3);say('你撕下了接的悬赏。','bad');wlDone('放弃悬赏');}],['返回',wlMenu]]);}
  wshow(w.bty.map((b,i)=>[b.t+' · '+LOC[b.loc].n+' · '+b.g+'两/声望'+b.rep,()=>{w.bAct=Object.assign({until:S.day+b.days},b);w.bty.splice(i,1);push({k:'t',t:'【悬赏】接下：'+b.t+'（'+b.days+'日内，'+LOC[b.loc].n+'）'});if(b.tp==='escort'){say('镖车随你出发。');}wlDone('接下悬赏：'+b.t);}]).concat([['返回',wlMenu]]));}
 function bountyHere(){const w=wl(),b=w.bAct;if(!b)return null;if(S.day>b.until){w.bAct=null;S.rep=Math.max(0,S.rep-3);push({k:'t',t:'【悬赏失败】'+b.t+'逾期，声望 -3'});return null;}
- if(b.loc!==S.loc)return null;return ['办理悬赏：'+b.t,()=>{const done=()=>{w.bAct=null;w.bDone++;S.gold+=b.g;S.rep+=b.rep;push({k:'t',t:'【悬赏完成】'+b.t+' · 银两 +'+b.g+' · 声望 +'+b.rep});wlDone('完成悬赏：'+b.t);};
+ if(b.loc!==S.loc)return null;return ['办理悬赏：'+b.t,()=>{const done=()=>{w.bAct=null;w.bDone++;S.gold+=b.g+(b.tp==='escort'&&gPerk('天风镖盟')?Math.round(b.g*.3):0);S.rep+=b.rep;push({k:'t',t:'【悬赏完成】'+b.t+' · 银两 +'+b.g+' · 声望 +'+b.rep});wlDone('完成悬赏：'+b.t);};
   if(b.tp==='catch')return startFight({n:b.t.slice(2),hp:55,atk:10,lv:b.lv+1,named:1,el:pick(EL5)},done);
   if(b.tp==='escort')return chance(.5)?(say('劫镖的来了！'),startFight({n:'劫镖悍匪',hp:45,atk:9,lv:b.lv},done)):done();
   if(chance(.6+S.lv*.03)){say('你四处打探，终于寻到了'+b.t.slice(2)+'。');done();}else{say('线索断了，明日再来找找。');S.day++;wlDone('');}}];}
@@ -824,21 +826,21 @@ function tourney(){const t=wl().tour;t.next=S.day+30;t.held++;push({k:'t',t:'【
 function rankList(){const t=wl().tour;const me=S.lv*10+Math.floor(S.rep/2)+t.champ*40+t.best*8;return MASTERS.map(([n,lv],i)=>[n,lv*10+60-i*3]).concat([[S.name+'（你）',me]]).sort((a,b)=>b[1]-a[1]);}
 /* ---- 7 帮派 ---- */
 const FAC={练武场:'弟子战力 +',药庐:'每期产药',账房:'每期银两 +'};
-function gangMenu(){const w=wl(),g=w.gang;if(!g){return wshow([['开宗立派（需声望60、银两300）',()=>{if(S.rep<60||S.gold<300){say('声望或银两不足（声望 '+S.rep+'/60，银两 '+S.gold+'/300）。','bad');return wlMenu();}S.gold-=300;
+function gangMenu(){const w=wl(),g=w.gang;if(!g){return wshow([['开宗立派（需声望60、银两300）',()=>{if(bh().g){say('你还是'+bh().g+'的人，须先脱离帮会才能自立门户。','bad');return wlMenu();}if(S.rep<60||S.gold<300){say('声望或银两不足（声望 '+S.rep+'/60，银两 '+S.gold+'/300）。','bad');return wlMenu();}S.gold-=300;
    w.gang={n:S.name.slice(0,1)+'家帮',disc:5,fac:{练武场:0,药庐:0,账房:0},terr:1,last:S.day,rival:pick(['黑虎帮','青龙会','铁血堂']),rp:3,raid:S.day+12};push({k:'u',t:'【开宗立派】你创立了'+w.gang.n,d:'弟子五人，地盘一处'});wlDone('创立'+w.gang.n);}],['返回',wlMenu]]);}
  wshow([['招募弟子（20两）',()=>{if(S.gold<20){say('银两不足。','bad');return gangMenu();}S.gold-=20;const k=R(2,5);g.disc+=k;say('新收弟子 '+k+' 人（共 '+g.disc+'）。','sys');gangMenu();}],
   ['建设设施',()=>wshow(Object.keys(FAC).map(f=>[f+' Lv'+g.fac[f]+'→'+(g.fac[f]+1)+'（'+(100*(g.fac[f]+1))+'两）',()=>{const c=100*(g.fac[f]+1);if(S.gold<c||g.fac[f]>=3){say(g.fac[f]>=3?'已经建到顶了。':'银两不足。','bad');return gangMenu();}S.gold-=c;g.fac[f]++;say(f+'扩建完成。','sys');gangMenu();}]).concat([['返回',gangMenu]]))],
   ['派弟子出任务',()=>{if(g.mDay===S.day){say('弟子们今日已出过任务。','bad');return gangMenu();}g.mDay=S.day;const pw=g.disc+g.fac.练武场*8;if(chance(Math.min(.85,.35+pw/60))){const s=R(20,40)+g.terr*5;S.gold+=s;S.rep+=2;if(chance(.25)){g.terr++;say('弟子们拿下了一处新地盘！','sys');}say('任务顺利，银两 +'+s,'sys');}else{const l=Math.min(g.disc-1,R(1,3));g.disc-=l;say('任务失手，折损弟子 '+l+' 人。','bad');}wlDone('派'+g.n+'弟子出任务');}],
   ['与'+g.rival+'争地盘',()=>startFight({n:g.rival+'帮主',hp:70+g.rp*5,atk:11+g.rp,lv:S.lv,named:1},()=>{g.terr+=2;g.rp++;S.rep+=8;push({k:'t',t:'【帮派】你击败'+g.rival+'帮主，地盘 +2'});wlDone('击败'+g.rival);})],['返回',wlMenu]]);}
-function gangTick(){const g=wl().gang;if(!g)return false;if(S.day-g.last>=5){const n=Math.floor((S.day-g.last)/5);g.last+=n*5;const inc=n*(g.disc*2+g.terr*15+g.fac.账房*20);S.gold+=inc;if(g.fac.药庐)item('金疮药',g.fac.药庐*n);push({k:'l',t:'【帮派进账】'+g.n+'上缴银两 +'+inc});}
+function gangTick(){const g=wl().gang;if(!g)return false;if(S.day-g.last>=5){const n=Math.floor((S.day-g.last)/5);g.last+=n*5;const inc=n*(g.disc*2+g.terr*15+g.fac.账房*20+(g._pb||0));S.gold+=inc;if(g.fac.药庐)item('金疮药',g.fac.药庐*n);push({k:'l',t:'【帮派进账】'+g.n+'上缴银两 +'+inc});}
  if(S.day>=g.raid){g.raid=S.day+R(10,15);push({k:'t',t:'【帮派】'+g.rival+'来犯！'});wshow([['亲自迎敌',()=>startFight({n:g.rival+'打手头目',hp:55,atk:10,lv:S.lv,named:1},()=>{S.rep+=4;wlDone('击退'+g.rival);})],['交保护费（50两）',()=>{S.gold=Math.max(0,S.gold-50);g.disc=Math.max(1,g.disc-1);wlDone('向'+g.rival+'低头');}],['让弟子自己守',()=>{if(chance(.4+g.fac.练武场*.15)){say('弟子们守住了。');}else{g.terr=Math.max(1,g.terr-1);g.disc=Math.max(1,g.disc-2);say('丢了一处地盘。','bad');}wlDone('');}]]);return true;}return false;}
 /* ---- 声望挑战者 ---- */
 function challenger(){const w=wl();if(S.rep<50||(S.turn||0)-(w.chT||-99)<10||!canAmbush()||!chance(.25))return false;w.chT=S.turn||0;const n=pick(['快刀','铁拳','飞燕','无影剑'])+pick(['张','李','秦','萧'])+pick(['三','九','一郎','公子']);
  push({k:'t',t:'【挑战】'+n+'慕名而来'});say('「久闻'+S.name+'大名（'+ftier()+'），特来讨教！」');wshow([['应战',()=>spar({n,hp:60,atk:11,lv:S.lv+1},()=>{S.rep+=6;wlDone('击败挑战者'+n);},()=>{S.rep=Math.max(0,S.rep-3);wlDone('败给挑战者'+n);})],['婉拒',()=>{S.rep=Math.max(0,S.rep-1);wlDone('');}]]);return true;}
 /* ---- 江湖事务菜单 & 世界事件钩子 ---- */
-function wlMenu(){const w=wl();const c=[['打听传闻',rumors],['门派'+(w.sect?'：'+w.sect+SRANK[w.srank]:'（拜师）'),sectMenu],['悬赏榜'+(w.bAct?'（进行中）':''),bountyMenu],['情缘',loveMenu],['帮派'+(w.gang?'：'+w.gang.n:''),gangMenu]];
+function wlMenu(){const w=wl();const c=[['打听传闻',rumors],['门派'+(w.sect?'：'+w.sect+SRANK[w.srank]:'（拜师）'),sectMenu],['悬赏榜'+(w.bAct?'（进行中）':''),bountyMenu],['情缘',loveMenu],['帮派'+(w.gang?'：'+w.gang.n:'（自立）'),gangMenu],['帮会'+(myG()?'：'+myG()+GRANK[bh().rank]:'（加入帮派）'),guildMenu],['产业'+(props().length?'（'+props().length+'处）':''),propMenu]];
  if(tourReady())c.unshift(['赴武林大会！',tourney]);if(endList().length)c.push(['江湖归宿（结局）',()=>wshow(endList().concat([['再想想',wlMenu]]))]);c.push(['行商贩货'+(S.goods?'（带着'+S.goods.n+'）':''),trade]);c.push(['归隐江湖（结束本局）',()=>wshow([['确定归隐',()=>end('retire')],['再想想',wlMenu]])]);c.push(['返回',wlBack]);wshow(c);}
-function endList(){const w=wl(),L=[];if(S.flags.mengzhu)L.push(['就任武林盟主',()=>end('mengzhu')]);if(w.srank>=4||(w.gang&&w.gang.terr>=6&&w.gang.disc>=40))L.push(['开宗立说，成一代宗师',()=>end('zongshi')]);if(w.spouse)L.push(['携'+w.spouse+'归隐',()=>end('xianlv')]);return L;}
+function endList(){const w=wl(),L=[];if(S.flags.mengzhu)L.push(['就任武林盟主',()=>end('mengzhu')]);if(propRich())L.push(['金盆洗手，富甲一方',()=>end('fujia')]);if(w.srank>=4||bh().rank>=4||(w.gang&&w.gang.terr>=6&&w.gang.disc>=40))L.push(['开宗立说，成一代宗师',()=>end('zongshi')]);if(w.spouse)L.push(['携'+w.spouse+'归隐',()=>end('xianlv')]);return L;}
 /* ===== 故事线面板（开放世界：主线可选 + 七大江湖玩法 + 结局之路） ===== */
 function sagaRec(e){if(!S||!e)return;let t=null;if((e.k==='t'||e.k==='u')&&/^【/.test(e.t||''))t=e.t;else if(e.k==='e')t='【结局·'+e.t+'】';if(!t)return;sagaInit();const L=S.saga,last=L[L.length-1];if(last&&last.t===t)return;L.push({d:S.day,t:String(t).slice(0,60)});if(L.length>60)L.shift();}
 function sagaInit(){if(Array.isArray(S.saga))return;S.saga=(S.log||[]).filter(e=>((e.k==='t'||e.k==='u')&&/^【/.test(e.t||''))||e.k==='e').map(e=>({d:null,t:String(e.k==='e'?'【结局·'+e.t+'】':e.t).slice(0,60)})).slice(-60);}
@@ -885,6 +887,14 @@ function sagaLines(){const w=wl(),f=S.flags||{},g=w.gang,t=w.tour,ls=Math.max(0,
  L.push({id:'qy',t:'江湖奇遇',on:w.qy.length>0,st:'已历 '+w.qy.length+'/'+QY.length,
   pips:QY.map(q=>[w.qy.includes(q.id)?q.t:'？？？',w.qy.includes(q.id)]),
   h:w.qy.length>=QY.length?'奇遇已尽数经历。':qiyuReady()?'机缘将至：四处探索时可能撞上。':'尚需磨砺，大约每 15 回合才有一次机缘。',btn:null});
+ {const B=bh(),G=B.g&&GUILDS[B.g];L.push({id:'guild',t:'江湖帮会',on:!!B.g||B.left.length>0,st:B.g?B.g+' · '+GRANK[B.rank]:'未入帮会',
+  pips:[['入帮',!!B.g],['香主',B.g&&B.rank>=1],['堂主',B.g&&B.rank>=2],['副帮主',B.g&&B.rank>=3],['帮主',B.g&&B.rank>=4]],
+  h:B.g?('功绩 '+B.merit+(B.rank<4?' / '+GMERIT[Math.min(4,B.rank+1)]:'')+' · 月钱 '+GWAGE[B.rank]+' 两/5日 · 好处：'+G.perk+' · 宿敌'+G.rival+'（约第 '+B.war+' 日帮战）'):('可投：'+Object.keys(GUILDS).filter(k=>!B.left.includes(k)).map(k=>k+'（'+GUILDS[k].side+'·'+LOC[GUILDS[k].loc].n+'）').join('、')+(B.left.length?' · 已脱离：'+B.left.join('、'):'')+(wl().gang?' · 你已自立门户':'')),
+  btn:['帮会事务',guildMenu]});}
+ {const ps=props(),inc=Math.round(ps.reduce((a,p)=>a+pInc(p),0)),val=ps.reduce((a,p)=>a+pval(p),0);L.push({id:'prop',t:'产业经营',on:ps.length>0,st:ps.length?ps.length+' 处 · 日入约 '+inc+' 两':'尚无产业',
+  pips:[['第一份产业',ps.length>=1],['三处产业',ps.length>=3],['有掌柜照看',ps.some(p=>p.mgr)],['五处·估值3500（富甲一方）',propRich()]],
+  h:ps.length?ps.map(p=>LOC[p.loc].n+p.k+'Lv'+p.lv).join('、')+' · 估值 '+val+' 两 · 累计入账 '+wl().pst.earn+' 两':'客栈 260、田庄 200、药铺 240 两起。无掌柜要亲自去收账（最多存 20 日），雇了掌柜自动缴账但抽两成。',
+  btn:['产业',propMenu]});}
  return L;}
 function sagaActive(){try{return sagaLines().filter(l=>l.on).length;}catch(_){return 0;}}
 function sagaEnds(){const w=wl(),f=S.flags||{},g=w.gang,r=route();
@@ -892,8 +902,9 @@ function sagaEnds(){const w=wl(),f=S.flags||{},g=w.gang,r=route();
   ['魔教教主','走邪派，决战时夺取教主之位',r==='邪派'&&f.mainOn&&(f.cultMap||S.clues>=5)&&!f.boss?1:0,r==='邪派'?(f.mainOn?'需抵达总坛决战':'需开启主线'):'需走邪派'],
   ['血月新主','决战前投入血月教',0,'在总坛面对教主时可选'],
   ['武林盟主','在武林大会上连胜三场',f.mengzhu?2:0,f.mengzhu?'已夺魁，可就任':'最好 '+w.tour.best+'/3 胜'],
-  ['一代宗师','当上掌门，或把帮派做成天下大帮',(w.srank>=4||(g&&g.terr>=6&&g.disc>=40))?2:0,w.srank>=4?'已是掌门':g?'地盘 '+g.terr+'/6 · 弟子 '+g.disc+'/40':w.sect?SRANK[w.srank]+' → 掌门':'未入门派、未立帮'],
+  ['一代宗师','当上掌门/帮会帮主，或把自家帮派做成天下大帮',(w.srank>=4||bh().rank>=4||(g&&g.terr>=6&&g.disc>=40))?2:0,w.srank>=4?'已是掌门':g?'地盘 '+g.terr+'/6 · 弟子 '+g.disc+'/40':w.sect?SRANK[w.srank]+' → 掌门':'未入门派、未立帮'],
   ['神仙眷侣','与心上人成亲后携手归隐',w.spouse?2:0,w.spouse?'已与'+w.spouse+'成亲':'情缘 '+(['无','知己','恋人','夫妻'][Math.max(0,...Object.values(w.love).map(Number),0)])],
+  ['富甲一方','置下五处产业、估值 3500 两',propRich()?2:0,props().length+'/5 处 · 估值 '+props().reduce((a,p)=>a+pval(p),0)+'/3500'],
   ['江湖不再','随时可在「江湖事务」里归隐（会结束本局）',0,'随时可选']];}
 function renderSaga(){const p=$('qPanel');if(!p||!S)return;p.textContent='';sagaInit();
  const L=sagaLines(),on=L.filter(l=>l.on),off=L.filter(l=>!l.on),E=sagaEnds(),ready=E.filter(e=>e[2]===2).length;
@@ -911,14 +922,127 @@ function renderSaga(){const p=$('qPanel');if(!p||!S)return;p.textContent='';saga
  if(!S.over&&endList().length){const bt=el('button','go2','选择江湖归宿');bt.onclick=act(()=>wshow(endList().concat([['再想想',wlBack]])));p.append(bt);}
  const ms=(S.saga||[]).slice(-8).reverse();p.append(el('h6','sgh','江湖大事记'));if(!ms.length)p.append(el('div','rhint','还没有大事发生。'));else{const lg=el('div','sglog');ms.forEach(m=>{const r=el('div');r.append(el('em',null,m.d?'第'+m.d+'日':'早先'),el('span',null,m.t));lg.append(r);});p.append(lg);}
  closer(p,'收起');}
-function wlHook(){if(decision())return true;if(tourReady()&&!wl().tAsk){wl().tAsk=S.day;say('武林大会的英雄帖送到了你手上。','sys');}if(gangTick())return true;return false;}
+/* ===== 江湖帮会（加入现成帮派）与 产业经营 ===== */
+const GUILDS={
+ 漕帮:{side:'正',loc:'river',el:'水',need:{rep:10,karma:0},rival:'巨鲸帮',perk:'行商卖价 +15%',d:'运河漕运的船帮，讲义气守规矩。'},
+ 天风镖盟:{side:'正',loc:'city',el:'金',need:{rep:20,karma:2},rival:'青龙会',perk:'镖局收益 +30%，护送悬赏赏银 +30%',d:'京城镖局结成的同盟，一诺千金。'},
+ 铁掌帮:{side:'中',loc:'forest',el:'土',need:{rep:0,karma:-99,lv:3},rival:'漕帮',perk:'攻击 +（帮内职位+1）×2',d:'以掌力称雄，亦正亦邪，只认拳头。'},
+ 巨鲸帮:{side:'邪',loc:'south',el:'水',need:{rep:0,karma:-99,maxKarma:5},rival:'漕帮',perk:'战后搜刮银两 +30%',d:'盘踞江南水道的水匪帮，劫富也劫贫。'},
+ 青龙会:{side:'邪',loc:'desert',el:'木',need:{rep:30,karma:-99,maxKarma:-2},rival:'天风镖盟',perk:'当铺、酒楼收益 +30%，帮会差事银两加倍',d:'神秘的地下帮会，十二堂口遍布塞内外。'}};
+const GRANK=['帮众','香主','堂主','副帮主','帮主'],GMERIT=[0,40,110,220,360],GWAGE=[6,14,26,42,65];
+function bh(){const w=wl();if(!w.bh)w.bh={g:null,rank:0,merit:0,left:[],rel:{},last:S.day,mDay:-1,war:0,wins:0};return w.bh;}
+const myG=()=>bh().g,gPerk=n=>bh().g===n;
+function guildOk(k){const w=wl(),s=w.sect&&SECTS[w.sect],G=GUILDS[k];if(!s)return '';if(s.side==='正'&&G.side==='邪')return w.sect+'门规森严，不许弟子与'+k+'为伍';if(s.side==='邪'&&G.side==='正')return '血月教不容你投靠'+k;return '';}
+function sectGuildOk(k){const g=myG();if(!g)return true;const s=SECTS[k];return !((s.side==='正'&&GUILDS[g].side==='邪')||(s.side==='邪'&&GUILDS[g].side==='正'));}
+function guildMenu(){const b=bh();if(!b.g){const ks=Object.keys(GUILDS).filter(k=>!b.left.includes(k));
+  if(wl().gang)say('你已自立'+wl().gang.n+'，各大帮会不会收一位帮主做帮众。不过你仍可看看。');
+  return wshow(ks.map(k=>{const G=GUILDS[k],n=G.need;const why=wl().gang?'已自立门户':guildOk(k)||(S.rep<n.rep?'声望需'+n.rep:'')||(S.karma<n.karma?'善恶需≥'+n.karma:'')||(n.maxKarma!=null&&S.karma>n.maxKarma?'善恶需≤'+n.maxKarma:'')||(n.lv&&S.lv<n.lv?'等级需'+n.lv:'');
+   return [k+'（'+G.side+'·'+LOC[G.loc].n+'）'+(why?'·'+why:''),()=>why?(say(k+'：'+G.d+(why?'（'+why+'）':''),'bad'),guildMenu()):guildJoinAsk(k)];}).concat([['返回',wlMenu]]));}
+ const G=GUILDS[b.g];const c=[['帮会差事（今日'+(b.mDay===S.day?'已领':'可领')+'）',guildMission],['领取帮会月钱',guildWage]];
+ if(b.rank>=3)c.push(['挑战帮主之位（功绩'+GMERIT[4]+'）',guildHead]);c.push(['脱离'+b.g,guildLeave],['返回',wlMenu]);
+ say('你在'+b.g+'任'+GRANK[b.rank]+'，功绩 '+b.merit+(b.rank<4?'/'+GMERIT[Math.min(4,b.rank+1)]:'')+'。宿敌：'+G.rival+'。');wshow(c);}
+function guildJoinAsk(k){const G=GUILDS[k];say(k+'：'+G.d+' 帮中好处：'+G.perk+'。');
+ wshow([['递上拜帖，入'+k,()=>{const b=bh();b.g=k;b.rank=0;b.merit=0;b.last=S.day;b.war=S.day+R(15,25);b.rel[G.rival]=(b.rel[G.rival]||0)-20;if(G.side==='邪')S.karma-=2;else if(G.side==='正')S.rep+=3;push({k:'t',t:'【入帮】你加入'+k+'，成为帮众'});wlDone('加入'+k);}],['再想想',guildMenu]]);}
+function guildRank(){const b=bh();while(b.rank<3&&b.merit>=GMERIT[b.rank+1]){b.rank++;push({k:'u',t:'【帮会】升任'+b.g+GRANK[b.rank],d:'月钱 '+GWAGE[b.rank]+' 两/5日'});note('升任'+b.g+GRANK[b.rank]);}}
+const GMIS=[['押运货船',1],['收一笔旧账',2],['火并宿敌堂口',3],['打探消息',4]];
+function guildMission(){const b=bh();if(b.mDay===S.day){say('今日的差事已经派过了。','bad');return guildMenu();}b.mDay=S.day;const G=GUILDS[b.g],m=pick(GMIS);say(b.g+'的舵主派你：'+m[0]+'。');
+ const done=()=>{const mt=R(6,12)+(m[1]===3?6:0);let g=R(8,16)+S.lv*2;if(gPerk('青龙会'))g*=2;b.merit+=mt;S.gold+=g;if(G.side==='邪'&&m[1]===2)S.karma-=1;say('差事办妥：功绩 +'+mt+'，银两 +'+g,'sys');guildRank();wlDone(b.g+'差事：'+m[0]);};
+ if(m[1]===3){b.rel[G.rival]=(b.rel[G.rival]||0)-5;return startFight({n:G.rival+'堂口好手',hp:55,atk:10,lv:S.lv,el:GUILDS[G.rival].el},done);}
+ if(m[1]===1&&chance(.35)&&canAmbush(4))return startFight({n:'劫船水匪',hp:45,atk:9,lv:S.lv},done);done();}
+function guildWage(){const b=bh();const n=Math.floor((S.day-b.last)/5);if(n<1){say('月钱每 5 日发一次，还没到日子。','bad');return guildMenu();}const pay=n*GWAGE[b.rank];b.last+=n*5;S.gold+=pay;say('账房递来 '+pay+' 两月钱。','sys');wlDone('');}
+function guildLeave(){const b=bh(),k=b.g;wshow([['确定脱离'+k+(b.rank>=1?'（声望-5，从此视你为叛徒）':''),()=>{b.left.push(k);b.rel[k]=b.rank>=1?-60:-20;if(b.rank>=1)S.rep=Math.max(0,S.rep-5);push({k:'t',t:'【离帮】你脱离了'+k+(b.rank>=1?'，'+k+'将你视作叛徒':'')});b.g=null;b.rank=0;b.merit=0;wlDone('脱离'+k);}],['再想想',guildMenu]]);}
+function guildHead(){const b=bh();if(b.merit<GMERIT[4]){say('功绩不足（'+b.merit+'/'+GMERIT[4]+'），帮众不服。','bad');return guildMenu();}
+ say(b.g+'老帮主拍案而起：「想坐这把交椅，先过我这一关！」');spar({n:b.g+'老帮主',hp:100,atk:14,lv:S.lv+1,named:1,el:GUILDS[b.g].el},()=>{b.rank=4;S.rep+=15;push({k:'u',t:'【帮主】你执掌'+b.g,d:'号令帮众'});wlDone('执掌'+b.g);},()=>{say('你差了一招。老帮主笑道：「再练练。」');wlDone('挑战帮主失利');});}
+function guildWar(){const b=bh();if(!b.g||S.day<b.war||S.over)return false;b.war=S.day+R(18,28);const G=GUILDS[b.g];push({k:'t',t:'【帮战】'+b.g+'与'+G.rival+'火并在即'});say('帮中传来飞鸽：'+G.rival+'抢了'+b.g+'的地盘，舵主召集人手。');
+ wshow([['带人参战',()=>startFight({n:G.rival+'堂主',hp:70,atk:12,lv:S.lv+1,named:1,el:GUILDS[G.rival].el},()=>{b.merit+=30;b.wins++;S.rep+=5;b.rel[G.rival]=(b.rel[G.rival]||0)-10;push({k:'t',t:'【帮战大胜】功绩 +30'});guildRank();wlDone('帮战击败'+G.rival);})],
+  ['托病不去（功绩-15）',()=>{b.merit=Math.max(0,b.merit-15);wlDone('');}]]);return true;}
+/* 在宿敌或叛出的帮会地盘上，可能被找上门 */
+function guildFoeHere(){const b=bh();if(!canAmbush(6)||!chance(.18))return false;const k=Object.keys(GUILDS).find(k=>GUILDS[k].loc===S.loc&&(b.rel[k]||0)<=-20&&b.g!==k);if(!k)return false;
+ const traitor=b.left.includes(k)&&(b.rel[k]||0)<=-60;push({k:'t',t:'【'+k+'】'+(traitor?'清理门户':'寻仇')});say(traitor?k+'的人拦住你：「叛帮之徒，今天给你个了断！」':k+'的人认出了你：「就是他，跟咱们作对的那个！」');
+ wshow([['迎战',()=>startFight({n:k+(traitor?'执法长老':'打手'),hp:traitor?65:45,atk:traitor?12:9,lv:S.lv,named:traitor,el:GUILDS[k].el},()=>{b.rel[k]=Math.min(-20,(b.rel[k]||0)+10);wlDone('击退'+k+'的人');})],['花钱消灾（30两）',()=>{S.gold=Math.max(0,S.gold-30);b.rel[k]=(b.rel[k]||0)+5;wlDone('');}]]);return true;}
+/* ---- 产业 ---- */
+const PROP={客栈:{c:260,i:5,locs:['town','city','south','river','desert'],ic:'栈',d:'过往客商歇脚，细水长流'},
+ 酒楼:{c:420,i:8,locs:['town','city','south'],ic:'酒',d:'宾客盈门，消息灵通'},
+ 药铺:{c:240,i:3,locs:['town','south','emei','temple','wudang'],ic:'药',pr:'drug',d:'每 5 日出产伤药'},
+ 铁匠铺:{c:320,i:3,locs:['town','tang','city','forest'],ic:'铁',pr:'gear',d:'偶尔打出兵器护甲'},
+ 当铺:{c:520,i:9,locs:['city','town'],ic:'当',risk:1.5,d:'利厚，也招贼'},
+ 镖局:{c:600,i:10,locs:['city','river','south'],ic:'镖',risk:1.3,d:'走镖收入高，常遇劫镖'},
+ 田庄:{c:200,i:3,locs:['forest','south','shaolin','wudang','temple'],ic:'田',harvest:1,d:'每 30 日秋收，看老天赏饭'},
+ 货栈:{c:380,i:4,locs:['river','city','south','desert'],ic:'货',trade:1,d:'本地收货 9 两/件，此地卖货 +20%'}};
+const PLVM=[0,1,1.7,2.4],PCAP_N=8;
+function props(){const w=wl();if(!w.props)w.props=[];if(!w.pst)w.pst={earn:0,spend:0,last:S.day,ev:[]};return w.props;}
+const pval=p=>Math.round(PROP[p.k].c*(1+(p.lv>1?.8:0)+(p.lv>2?1.2:0)));
+function pInc(p){const T=PROP[p.k];let v=T.i*PLVM[p.lv];if(p.boom>S.day)v*=1.5;if(p.slump>S.day)v*=.6;if(p.k==='镖局'&&gPerk('天风镖盟'))v*=1.3;if((p.k==='当铺'||p.k==='酒楼')&&gPerk('青龙会'))v*=1.3;if(p.mgr)v*=.8;return v;}
+const propHere=()=>props().filter(p=>p.loc===S.loc);
+function propLog(t,bad){const ps=props();wl().pst.ev.unshift('第'+S.day+'日 '+t);wl().pst.ev=wl().pst.ev.slice(0,12);push({k:'l',t:'【产业】'+t});}
+function gProtect(p){const w=wl();if(w.gang&&p.loc==='town')return .4;if(w.gang)return .7;const k=Object.keys(GUILDS).find(k=>GUILDS[k].loc===p.loc);if(k&&myG()===k)return .5;return 1;}
+/* 每 5 日结算一次（离开多久都会补算，不会一次暴富：无掌柜时账房最多存 20 日收益） */
+function econTick(){const ps=props(),st=wl().pst;let msg=false;
+ const b=bh();if(b.g&&S.day-b.last>=25){const n=Math.floor((S.day-b.last)/5);b.last+=n*5;const pay=n*GWAGE[b.rank];S.gold+=pay;propLog(b.g+'托人捎来月钱 '+pay+' 两');msg=true;}
+ if(!ps.length){st.last=S.day;return msg;}
+ let guard=0;while(S.day-st.last>=5&&guard++<60){st.last+=5;const d=st.last;let remit=0;
+  ps.forEach(p=>{const T=PROP[p.k];let inc=pInc(p)*5;
+   const rob=.05*(T.risk||1)*gProtect(p)*(p.mgr?.6:1);
+   if(chance(rob)){const lost=p.mgr?Math.round(inc):Math.round(inc+p.till);p.till=p.mgr?p.till:0;inc=0;propLog(LOC[p.loc].n+p.k+'遭了贼，损失约 '+lost+' 两'+(p.mgr?'（掌柜护住了大半）':''),1);msg=true;}
+   else if(chance(.05)){p.slump=d+10;propLog(LOC[p.loc].n+'新开了一家对手'+p.k+'，生意冷清了');}
+   else if(chance(.06)){p.boom=d+10;propLog(LOC[p.loc].n+p.k+'生意兴隆');}
+   const pk=Object.keys(GUILDS).find(k=>GUILDS[k].loc===p.loc&&GUILDS[k].side!=='正');if(pk&&myG()!==pk&&!wl().gang&&chance(.12)){const fee=Math.round(inc*.3);inc-=fee;if(fee>0)propLog(pk+'来收'+LOC[p.loc].n+p.k+'的保护费 '+fee+' 两');}
+   if(T.harvest&&d%30<5){const h=chance(.75)?Math.round(T.c*.2*PLVM[p.lv]):-Math.round(inc*.5);inc+=h;propLog(LOC[p.loc].n+'田庄'+(h>0?'秋收丰稔，多收 '+h+' 两':'遭了旱灾，歉收'));msg=true;}
+   if(T.pr==='drug'){p.stock=Math.min(8,Math.round(((p.stock||0)+.4*p.lv)*10)/10);}
+   if(T.pr==='gear'&&chance(.08*p.lv))p.gear=(p.gear||[]).concat(lootGear(S.lv)).slice(-3);
+   inc=Math.max(0,inc);
+   if(p.mgr){remit+=inc;}else{p.till=Math.min(Math.round(pInc(p)*20),Math.round((p.till||0)+inc));}});
+  if(d%30<5){const tax=Math.round(ps.reduce((a,p)=>a+pval(p),0)*.03);S.gold=Math.max(0,S.gold-tax);st.spend+=tax;propLog('官府按季收税 '+tax+' 两');msg=true;}
+  remit=Math.round(remit);if(remit){S.gold+=remit;st.earn+=remit;}}
+ const mg=ps.filter(p=>p.mgr);if(mg.length&&msg===false&&S.day%10<1)propLog('掌柜们按时缴账');
+ if(wl().gang)wl().gang._pb=ps.length*8;return msg;}
+function propCollect(p){const t=Math.round(p.till||0);let s='';if(t){S.gold+=t;wl().pst.earn+=t;s+='收账 '+t+' 两';}p.till=0;
+ if(p.stock>=1){const n=Math.floor(p.stock);item('金疮药',Math.ceil(n*.7));if(n>=3)item('回气丹',Math.floor(n*.3));s+=(s?'，':'')+'取药 '+n+' 份';p.stock-=n;}
+ if(p.gear&&p.gear.length){p.gear.forEach(g=>gainGear(g,null,true));s+=(s?'，':'')+'铁匠打出 '+p.gear.join('、');p.gear=[];}return s||'账上没什么可收的';}
+function propMenu(){const ps=props(),here=propHere();const c=[];
+ here.forEach(p=>c.push(['打理'+p.k+'（Lv'+p.lv+(p.till?'·待收'+Math.round(p.till)+'两':'')+(p.stock>=1?'·药'+Math.floor(p.stock):'')+'）',()=>propOne(p)]));
+ const can=Object.keys(PROP).filter(k=>PROP[k].locs.includes(S.loc)&&!here.some(p=>p.k===k));
+ if(can.length)c.push(['在'+LOC[S.loc].n+'置办产业',()=>wshow(can.map(k=>[k+'（'+PROP[k].c+'两·日入约'+PROP[k].i+'）',()=>propBuy(k)]).concat([['返回',propMenu]]))]);
+ const far=ps.filter(p=>p.loc!==S.loc);if(far.length)c.push(['各地产业一览',()=>{far.forEach(p=>say(LOC[p.loc].n+p.k+' Lv'+p.lv+' · '+(p.mgr?'掌柜照看，按期缴账':'无人照看，待收 '+Math.round(p.till||0)+' 两（须亲自去收，最多存 20 日）'),'sys'));propMenu();}]);
+ if(!c.length)say('这里没有可置办的产业。可去青石镇、汴京、江南水乡、沧浪江等地看看。');c.push(['返回',wlBack]);wshow(c);}
+function propBuy(k){const T=PROP[k],ps=props();if(ps.length>=PCAP_N){say('摊子铺得太大，照看不过来了（最多 '+PCAP_N+' 处）。','bad');return propMenu();}
+ if(S.gold<T.c){say('银两不够（需 '+T.c+'）。','bad');return propMenu();}S.gold-=T.c;wl().pst.spend+=T.c;const p={id:Date.now().toString(36)+R(0,99),k,loc:S.loc,lv:1,mgr:0,till:0,boom:0,slump:0,since:S.day};ps.push(p);
+ push({k:'t',t:'【置业】你在'+LOC[S.loc].n+'盘下一间'+k});say(T.d+'。','sys');if(wl().gang)say(wl().gang.n+'的弟子会帮着看场子。','sys');wlDone('在'+LOC[S.loc].n+'置办'+k);}
+function propOne(p){const T=PROP[p.k];const up=p.lv<3?Math.round(T.c*(p.lv===1?.8:1.2)):0;
+ say(LOC[p.loc].n+p.k+' · Lv'+p.lv+' · 日入约 '+Math.round(pInc(p))+' 两'+(p.mgr?' · 有掌柜':' · 无掌柜')+(p.boom>S.day?' · 生意兴隆':'')+(p.slump>S.day?' · 生意冷清':''),'sys');
+ const c=[['收账'+(p.till?'（'+Math.round(p.till)+'两）':''),()=>{say(propCollect(p),'sys');propOne(p);}]];
+ if(up)c.push(['扩建到 Lv'+(p.lv+1)+'（'+up+'两）',()=>{if(S.gold<up){say('银两不够。','bad');return propOne(p);}S.gold-=up;wl().pst.spend+=up;p.lv++;push({k:'t',t:'【置业】'+LOC[p.loc].n+p.k+'扩建到 Lv'+p.lv});propOne(p);}]);
+ c.push(p.mgr?['辞退掌柜（自己收账）',()=>{p.mgr=0;say('你辞了掌柜。','sys');propOne(p);}]:['雇掌柜（50两，之后抽两成）',()=>{if(S.gold<50){say('银两不够。','bad');return propOne(p);}S.gold-=50;wl().pst.spend+=50;p.mgr=1;say('掌柜上任：每 5 日自动缴账，遇贼损失少些，但要抽两成。','sys');propOne(p);}]);
+ c.push(['转手卖掉（得'+Math.round(pval(p)*.5)+'两）',()=>wshow([['确定卖掉',()=>{const v=Math.round(pval(p)*.5)+Math.round(p.till||0);S.gold+=v;props().splice(props().indexOf(p),1);push({k:'t',t:'【置业】你卖掉了'+LOC[p.loc].n+p.k+'，得银 '+v});wlDone('');}],['再想想',()=>propOne(p)]])]);
+ c.push(['返回',propMenu]);wshow(c);}
+const tradeBuyCost=()=>props().some(p=>p.k==='货栈'&&p.loc===S.loc)?9:12;
+const tradeSellMul=()=>(props().some(p=>p.k==='货栈'&&p.loc===S.loc)?1.2:1)*(gPerk('漕帮')?1.15:1);
+function propRich(){const ps=props();return ps.length>=5&&ps.reduce((a,p)=>a+pval(p),0)>=3500;}
+function econState(){const b=bh(),ps=props();return {帮会:b.g?b.g+'·'+GRANK[b.rank]+'·功绩'+b.merit+'·宿敌'+GUILDS[b.g].rival:'未入帮会',叛出帮会:b.left,帮会恩怨:b.rel,产业:ps.map(p=>LOC[p.loc].n+p.k+'Lv'+p.lv+(p.mgr?'(有掌柜)':'')),产业日入:Math.round(ps.reduce((a,p)=>a+pInc(p),0))};}
+function econAI(J){if(!J||typeof J!=='object')return;const b=bh();
+ const jg=str(J.join_guild,6);if(jg&&GUILDS[jg]&&!b.g&&!b.left.includes(jg)&&!guildOk(jg)&&!wl().gang){b.g=jg;b.rank=0;b.merit=0;b.last=S.day;b.war=S.day+R(15,25);push({k:'t',t:'【入帮】你加入'+jg});}
+ if(J.leave_guild===true&&b.g){const k=b.g;b.left.push(k);b.rel[k]=b.rank>=1?-60:-20;b.g=null;b.rank=0;b.merit=0;push({k:'t',t:'【离帮】你脱离了'+k});}
+ const m=int(J.guild_merit,-20,30);if(m&&b.g){b.merit=Math.max(0,b.merit+m);guildRank();}
+ const pe=J.property_event;if(pe&&typeof pe==='object'){const t=str(pe.type,4),ef=str(pe.effect,8);const p=props().find(x=>x.k===t&&(!pe.loc||LOC[x.loc].n.includes(str(pe.loc,8))))||props().find(x=>x.k===t);
+  if(p){if(/boom|兴隆/.test(ef)){p.boom=S.day+10;propLog(LOC[p.loc].n+p.k+'生意兴隆');}else if(/slump|冷清/.test(ef)){p.slump=S.day+10;propLog(LOC[p.loc].n+p.k+'生意冷清');}else if(/rob|贼|劫/.test(ef)){p.till=0;propLog(LOC[p.loc].n+p.k+'遭劫，账上银子没了',1);}}}}
+/* 产业面板 */
+function renderProp(){const p=$('pPanel');if(!p||!S)return;p.textContent='';const ps=props(),st=wl().pst,b=bh();
+ const sh=el('div','saga-h');sh.append(el('h5',null,'产业'),el('small',null,ps.length+'/'+PCAP_N+' 处 · 日入约 '+Math.round(ps.reduce((a,x)=>a+pInc(x),0))+' 两'));p.append(sh);
+ p.append(el('div','bizsum','累计入账 '+st.earn+' 两 · 累计投入 '+st.spend+' 两 · 产业估值 '+ps.reduce((a,x)=>a+pval(x),0)+' 两'));
+ const L=el('div','bizl');if(!ps.length)L.append(el('div','lock','还没有产业。到青石镇、汴京、江南水乡、沧浪江等地，在「江湖事务 → 产业」里置办客栈、酒楼、药铺、镖局……'));
+ ps.forEach(x=>{const T=PROP[x.k];const c=el('div','biz'+(x.slump>S.day?' off':''));c.append(el('div','bic',T.ic));const m=el('div');const hd=el('div','bhd');hd.append(el('strong',null,LOC[x.loc].n+x.k),el('span','bst',x.mgr?'掌柜':'自管'));m.append(hd);
+  m.append(el('div','bmeta','Lv'+x.lv+' · 估值 '+pval(x)+' 两'+(x.boom>S.day?' · 兴隆':'')+(x.slump>S.day?' · 冷清':'')));m.append(el('div','bnote',T.d+(x.mgr?'':'；待收 '+Math.round(x.till||0)+' 两')+(x.stock>=1?'；存药 '+Math.floor(x.stock):'')+(x.gear&&x.gear.length?'；新打 '+x.gear.join('、'):'')));c.append(m);c.append(el('div','binc','≈'+Math.round(pInc(x))+'/日'));L.append(c);});p.append(L);
+ if(st.ev.length){p.append(el('h6','sgh','近期账目'));const lg=el('div','sglog');st.ev.slice(0,6).forEach(t=>{const r=el('div');const i=t.indexOf(' ');r.append(el('em',null,t.slice(0,i)),el('span',null,t.slice(i+1)));lg.append(r);});p.append(lg);}
+ p.append(el('h6','sgh','江湖帮会'));const rows=el('div','rows');Object.keys(GUILDS).forEach(k=>{const G=GUILDS[k];const r=el('div','rw');r.append(el('strong',null,k+'（'+G.side+'·'+LOC[G.loc].n+'）'),el('em',null,b.g===k?GRANK[b.rank]:b.left.includes(k)?'已脱离':(b.rel[k]||0)<=-20?'交恶':''),el('span',null,G.d+' 好处：'+G.perk+' · 宿敌'+G.rival));rows.append(r);});p.append(rows);
+ const bt=el('button','go2','打开产业');bt.onclick=()=>{closeAll();if(S.over||S.fight||AI.busy)return;propMenu();};const bt2=el('button','go2','帮会事务');bt2.onclick=()=>{closeAll();if(S.over||S.fight||AI.busy)return;guildMenu();};const bx=el('div','rbtns');bx.append(bt,bt2);p.append(bx);closer(p,'收起');}
+function wlHook(){if(decision())return true;if(tourReady()&&!wl().tAsk){wl().tAsk=S.day;say('武林大会的英雄帖送到了你手上。','sys');}if(gangTick())return true;econTick();if(guildWar())return true;if(guildFoeHere())return true;return false;}
 function wlState(){const w=wl(),g=w.gang;return {门派:w.sect?w.sect+'·'+SRANK[w.srank]+'·功绩'+w.merit:'无',叛出门派:w.left,门派恩怨:w.srel,声望称号:ftier(),悬赏进行中:w.bAct?w.bAct.t+'@'+LOC[w.bAct.loc].n:'无',已完成悬赏:w.bDone,正邪路线:route()||'未定',情缘:Object.entries(w.love).map(([n,s])=>n+':'+LOVE[s-1]),配偶:w.spouse||'无',武林大会:'下届第'+w.tour.next+'日·最好成绩'+w.tour.best+'胜'+(w.tour.champ?'·武林盟主':''),帮派:g?g.n+'·弟子'+g.disc+'·地盘'+g.terr+'·宿敌'+g.rival:'无',已历奇遇:w.qy};}
 function wlAI(J){if(!J||typeof J!=='object')return;const w=wl();
  const js=str(J.join_sect,4);if(js&&SECTS[js]&&!w.sect&&!w.left.includes(js))sectJoin2(js);
  if(J.leave_sect===true&&w.sect){w.left.push(w.sect);w.srel[w.sect]=-60;push({k:'t',t:'【叛门】你离开了'+w.sect});w.sect=null;w.srank=0;w.merit=0;}
  const m=int(J.sect_merit,-20,30);if(m&&w.sect){w.merit=Math.max(0,w.merit+m);sectRankUp();}
  const rp=int(J.rep,-15,20);if(rp){S.rep=Math.max(0,S.rep+rp);say('声望 '+(rp>0?'+':'')+rp,rp>0?'sys':'bad');}
- if(J.bounty_done===true&&w.bAct){const b=w.bAct;w.bAct=null;w.bDone++;S.gold+=b.g;S.rep+=b.rep;push({k:'t',t:'【悬赏完成】'+b.t+' · 银两 +'+b.g+' · 声望 +'+b.rep});}
+ if(J.bounty_done===true&&w.bAct){const b=w.bAct;w.bAct=null;w.bDone++;S.gold+=b.g+(b.tp==='escort'&&gPerk('天风镖盟')?Math.round(b.g*.3):0);S.rep+=b.rep;push({k:'t',t:'【悬赏完成】'+b.t+' · 银两 +'+b.g+' · 声望 +'+b.rep});}
  if(J.bounty_failed===true&&w.bAct){push({k:'t',t:'【悬赏失败】'+w.bAct.t});w.bAct=null;S.rep=Math.max(0,S.rep-3);}
  const r=J.romance;if(r&&typeof r==='object'){const n=str(r.name,10),st=LOVE.indexOf(str(r.stage,2))+1;if(n&&S.npcs&&S.npcs[n]&&st>0){const cur=w.love[n]||0,need=[0,50,65,80][st];if(st===cur+1&&S.npcs[n].rel>=need){if(st===3&&!w.spouse)wedding2(n);else if(st<3){w.love[n]=st;S.npcs[n].sp=LOVE[st-1];push({k:'t',t:'【情缘】'+n+'成了你的'+LOVE[st-1]});if(st===2)jealous(n,1);}}}}
  const rt=str(J.route,2);if(rt==='正道'||rt==='邪派'){if(w.route!==rt){w.route=rt;push({k:'t',t:'【正邪】你走上了'+rt+'之路'});}}
@@ -930,6 +1054,8 @@ function wedding2(n){const w=wl();w.spouse=n;w.love[n]=3;S.npcs[n].sp='夫妻';S
 /* ---- 结局 ---- */
 function wlEnds(){const w=wl();
  if(S.flags.mengzhu&&!w.eM){w.eM=1;say('群雄推举你为武林盟主，号令天下。');wshow([['就任盟主，执掌武林',()=>end('mengzhu')],['推辞，继续闯荡',go]]);return true;}
+ if(bh().rank>=4&&!w.eB){w.eB=1;say(bh().g+'上下唯你马首是瞻，江湖人称你一声「帮主」。');wshow([['坐镇帮中，成一代宗师',()=>end('zongshi')],['继续行走江湖',go]]);return true;}
+ if(propRich()&&!w.eF){w.eF=1;say('各地掌柜送来的账本堆满了案头，你已是江湖上数一数二的富户。');wshow([['金盆洗手，富甲一方',()=>end('fujia')],['钱是赚不完的，继续闯荡',go]]);return true;}
  if(w.srank>=4&&!w.eZ){w.eZ=1;say('门下弟子日众，你的武学已自成一家。');wshow([['闭关著书，开宗立说',()=>end('zongshi')],['继续行走江湖',go]]);return true;}
  if(w.gang&&w.gang.terr>=6&&w.gang.disc>=40&&!w.eG){w.eG=1;say(w.gang.n+'已成天下大帮，各派掌门都要让你三分。');wshow([['坐镇一方，成一代宗师',()=>end('zongshi')],['继续扩张',go]]);return true;}
  if(w.spouse&&S.day>=40&&!w.eX){w.eX=1;const n=w.spouse;say(n+'倚在你肩头：「打打杀杀够了，我们走吧？」');wshow([['携'+n+'归隐，从此神仙眷侣',()=>end('xianlv')],['再闯一段',go]]);return true;}
@@ -951,10 +1077,10 @@ function hub(){
  S._skip=0;if(chance(.5))S.day++;if(S.hp<S.mhp)heal(Math.round(S.mhp*.06));
  if(wlHook()||wlEnds())return;
  say(pick(L.d));
- const c=[];const sp=story();if(sp)c.push(sp);const bh=bountyHere();if(bh)c.push(bh);const w=wl();
+ const c=[];const sp=story();if(sp)c.push(sp);const bhr=bountyHere();if(bhr)c.push(bhr);const w=wl();
  if(tourReady()&&S.loc==='city')c.push(['赴武林大会！',tourney,1]);
  const sk=Object.keys(SECTS).find(k=>SECTS[k].loc===S.loc);if(sk&&!w.sect&&!w.left.includes(sk))c.push(['拜访'+sk,()=>sectTest(sk),1]);if(w.sect&&SECTS[w.sect].loc===S.loc)c.push(['领'+w.sect+'差事',sectMission,1]);
- if(w.gang&&S.loc==='town')c.push(['回'+w.gang.n+'总舵',gangMenu,1]);
+ if(w.gang&&S.loc==='town')c.push(['回'+w.gang.n+'总舵',gangMenu,1]);{const ph=propHere();if(ph.length)c.push(['打理产业'+(ph.some(p=>p.till>0||p.stock>=1||(p.gear&&p.gear.length))?'（有账可收）':''),propMenu,1]);const gk=Object.keys(GUILDS).find(k=>GUILDS[k].loc===S.loc);const b=bh();if(gk&&b.g===gk)c.push(['去'+gk+'分舵领差事',guildMission,1]);else if(gk&&!b.g&&!b.left.includes(gk)&&!w.gang&&chance(.5))c.push(['拜访'+gk+'分舵',()=>guildJoinAsk(gk),1]);}
  const lc=loveCands().filter(n=>(S.party||[]).includes(n.n));if(lc.length&&chance(.35)){const n=pick(lc).n;c.push(['和'+n+'说说话',()=>loveOne(n),1]);}
  c.push(["四处探索",()=>randomEvent()]);
  if(S.loc==="town"||S.loc==="city"||S.loc==="south")c.push(["去客栈休息（10两）",()=>{if(S.gold<10){say('掌柜白你一眼：「没钱住什么店？」你只得在柴房凑合一夜。');heal(15);}else{S.gold-=10;S.hp=S.mhp;S.mp=S.mmp;say('一夜好眠，气血内力尽复。','sys');}S.day++;go();}],["逛集市",shop]);
@@ -1182,7 +1308,7 @@ function enemyTurn(){const f=S.fight;let note='';tickCd();if(compTurn())return w
  if(em>1)note+='（'+f.el+'克'+S.el+'，你吃了大亏）';else if(em<1)note+='（'+S.el+'克'+f.el+'，你稳稳接下）';if(am<1)note+='（'+ar+'甲克'+f.el+'，减伤）';else if(am>1)note+='（'+f.el+'克'+ar+'甲，破防）';if(S._guard)d=Math.max(1,Math.round(d*.5));if(f.block){d=Math.max(1,Math.round(d*.5));note+='（'+f.block+'替你格开大半）';f.block=null;}S._guard=false;hurt(d);
  push({k:'r',w:false,t:name,d:'气血 -'+d+note+'（剩 '+S.hp+'）'});
  if(S.hp<=0){S._lastFoe=(S.fight&&(S.fight.named||S.fight.boss))?'n':'c';S.fight=null;return death();}fightMenu();}
-function winFight(){const f=S.fight;S.fight=null;$('status').textContent='点上面的选项，或写下你的行动';const g=R(5,15)*f.lv;S.gold+=g;
+function winFight(){const f=S.fight;S.fight=null;$('status').textContent='点上面的选项，或写下你的行动';const g=Math.round(R(5,15)*f.lv*(gPerk('巨鲸帮')?1.3:1));S.gold+=g;
  push({k:'t',t:'【'+f.n+'】倒下了 · 银两 +'+g});if(chance(.3))item(pick(["金疮药","金疮药","回气丹","解毒丹","灵芝","飞镖"]));if(chance(.35))item(/狼/.test(f.n)?'狼皮':/山贼/.test(f.n)?'山贼腰牌':/血月/.test(f.n)&&chance(.4)?'血月令牌':pick(['旧铜钱','破碎的刀刃','旧铜钱']));if(chance(.06))item(chance(.7)?'银票（五十两）':'银票（百两）');if(chance(f.boss?0:f.named?.3:.1)){const gn=lootGear(f.lv);gainGear(gn,null,true);}gainXp(15*f.lv+10);S.rep+=f.lv;
  S._guard=false;S.buff=null;S.combo=null;{const h=Math.round(S.mhp*.25);if(S.hp<S.mhp){heal(h);S.mp=Math.min(S.mmp,S.mp+Math.round(S.mmp*.3));say('战后调息片刻，气血 +'+h,'sys');}}const w=S._win;S._win=null;if(w)return w();if(f.boss)return end('hero');go();}
 function flee(){if(S.fight.boss){say('教主冷笑：「今日你走不了！」');return enemyTurn();}if(chance(S.fight.named?.3:.5)){say('你虚晃一招，抽身遁走。');S.fight=null;S.buff=null;S._win=null;$('status').textContent='点上面的选项，或写下你的行动';go();}else{say('逃跑失败！','bad');enemyTurn();}}
@@ -1203,6 +1329,7 @@ const ENDS={
  mengzhu:["武林盟主","群雄俯首，你登上盟主之位。从此号令既出，江湖再无人敢作乱——只是夜深时，你偶尔会想起青石镇的雨。"],
  xianlv:["神仙眷侣","你们在江南买下一座小院，春看桃花，冬煮新茶。江湖上的传说里，从此多了一对不知所踪的侠侣。"],
  zongshi:["一代宗师","你的武学自成一派，门下桃李遍天下。百年后，后人在祖师堂里供奉着你的画像。"],
+ fujia:["富甲一方","你的字号开遍大江南北，客栈、酒楼、镖局的伙计见了你都要喊一声东家。你收起长剑，坐在账房里拨着算盘——原来江湖最锋利的，是银子。"],
  mojiao:["魔教教主","萧寒倒在你脚下。你戴上血色面具，坐上教主宝座。从此正道闻风丧胆，而你已分不清自己是在复仇，还是成了他。"],
  dead:["埋骨他乡","你倒在了血泊中。江湖从不缺少无名的尸骨。"]};
 function end(k){S.over=true;S.fight=null;const [t,d]=ENDS[k];note('结局：'+t);
@@ -1291,11 +1418,11 @@ function sysPrompt(){return `你是一位武侠说书人，正在主持一场名
 {"choices":["3~4 个接下来的行动选项，每个不超过 14 字"],"hp":气血增减整数,"qi":内力增减整数,"xp":修为增加整数(0~80),"silver":银两增减整数,"gain":[{"name":"物品名","category":"drug(药物)/tool(道具)/quest(任务物品)/misc(杂物)","desc":"一句描述","hp":回复气血(0~80),"mp":回复内力(0~60),"cure":是否解毒,"dmg":暗器伤害(0~40),"gift":可赠送时的好感值(0~15),"silver":银票面额(0~200),"book":"若是秘籍写可习得的武功名"}]（兵器护甲饰品写在 gear 里）,"lose":["失去的物品"],"skill":"新学会的武功名或空","skill_element":"该武功的五行（金/木/水/火/土）","skill_type":"迅捷/内功/阴柔/刚猛","skill_moves":[{"name":"招名","qi":内力5~30,"cd":冷却0~3,"power":威力0~18,"effect":"缴械/破防/闪避反击/连发/点穴/回气/灼烧 之一或空"}],"place":"主角现在所在地名","clue":"新得到的主线线索一句话或空","note":"值得记入日志的事一句话或空","fight":{"enemy":"对手名","hp":对手气血,"atk":对手攻击力,"element":"对手五行（金/木/水/火/土）","boss":false} 或 null,"ending":{"title":"四字结局名","text":"结局尾声 60~120 字"} 或 null,"npcs":[{"name":"人物名","title":"身份","sect":"门派","age":"年纪","look":"相貌（中文）","personality":"性情","level":"武功高低","rel":本回合好感变化整数，平常 -8~8，只有救命、背叛、表白、结义这类大事才可到 ±15 并同时写 "major":true,"special":"特殊关系如师徒/同伴/知己(需好感≥50)/恋人(≥65)/结义(≥70)/生死之交(≥85)，且必须有相应剧情事件，否则省略","status":"在世/已故/受伤等","where":"所在","event":"本回合与主角之间发生的事一句话"}] 本回合登场或关系有变的人物，最多 4 个，已登记过的人物只写变化的字段,"gear":[{"name":"装备名","type":"weapon/armor/accessory","atk":攻击加成(一般1~5,最多10),"def":防御加成(一般1~5,最多10),"element":"装备五行（金/木/水/火/土）"}] 本回合获得的兵器护甲饰品（不要同时写进 gain）,"img":"用英文写的本回合画面描述，40~70 词，只写场景、人物动作、表情、光线、构图，不写画风，主角用 the hero 指代","image_type":"本回合正文重点在描写某个人物（外貌、神态、登场亮相、对话特写）时填 character，否则（风景、打斗全景、环境）填 scene","character":"image_type 为 character 时，用英文写这个人物的外貌：性别、大致年龄（必须是成年人）、发型、五官气质、服饰颜色与款式，20~40 词；是主角就写 the hero"}
 参考数值：游戏会按主角等级自动调整对手强度，你只需给出相对强弱（小喽啰气血 30~60、攻击 6~10；高手 100~150、攻击 14~20；萧寒标 boss:true）。一回合 hp 增减一般在 -25~+30 之间。
 【五行】战斗按五行相克结算：金克木、木克土、土克水、水克火、火克金；每个对手、武功、兵器、护甲都有五行，请在 fight/skill/gear 里写明，并在正文里偶尔点出相克之理（如以水克火）。
-【江湖系统】游戏里有：门派（少林/武当/峨眉/丐帮/唐门/血月教，拜师、升阶、门派任务、叛门）、江湖奇遇（稀有）、悬赏榜与声望称号、情缘（知己→恋人→成亲，需好感 50/65/80，多情会吃醋）、正邪路线、每 30 日一届武林大会（连胜三场为武林盟主）、自立帮派。状态里的「江湖」是当前情况，请把它们自然地织进剧情（不要每回合都提）。可在 JSON 里加 "jianghu":{"join_sect":"门派名","leave_sect":false,"sect_merit":门派功绩-20~30,"rep":声望-15~20,"bounty_done":false,"bounty_failed":false,"romance":{"name":"人名","stage":"知己/恋人/夫妻"},"route":"正道/邪派","qiyu":"奇遇名","gang":{"disciples":-10~10,"territory":-2~2},"tournament_win":false}，只写有变化的字段；情缘须循序渐进，只写成年人，含蓄不露骨。
+【江湖系统】游戏里有：门派（少林/武当/峨眉/丐帮/唐门/血月教，拜师、升阶、门派任务、叛门）、江湖奇遇（稀有）、悬赏榜与声望称号、情缘（知己→恋人→成亲，需好感 50/65/80，多情会吃醋）、正邪路线、每 30 日一届武林大会（连胜三场为武林盟主）、自立帮派；另有可加入的江湖帮会（漕帮、天风镖盟属正，铁掌帮中立，巨鲸帮、青龙会属邪；帮众→香主→堂主→副帮主→帮主，有差事、月钱、帮战与宿敌，叛帮会被追杀），以及产业（客栈、酒楼、药铺、铁匠铺、当铺、镖局、田庄、货栈，由玩家在游戏菜单里购置，你不要白送产业）。状态里的「江湖」是当前情况，请把它们自然地织进剧情（不要每回合都提）。可在 JSON 里加 "jianghu":{"join_sect":"门派名","leave_sect":false,"sect_merit":门派功绩-20~30,"rep":声望-15~20,"bounty_done":false,"bounty_failed":false,"romance":{"name":"人名","stage":"知己/恋人/夫妻"},"route":"正道/邪派","qiyu":"奇遇名","gang":{"disciples":-10~10,"territory":-2~2},"tournament_win":false,"join_guild":"帮会名","leave_guild":false,"guild_merit":帮会功绩-20~30,"property_event":{"type":"玩家已有的产业类型","effect":"boom/slump/robbed"}}，只写有变化的字段；情缘须循序渐进，只写成年人，含蓄不露骨。
 【平衡】人物关系要慢慢培养：寒暄、送礼只加一两点，同样的举动反复做不再加；信任要靠共同经历的大事。战斗要有挑战性：对手会反击、会用毒、会防守，主角受伤是常态，不要让主角轻松碾压；兵器护甲要少给，几回合才偶尔给一件，加成多为 1~5，神兵利器极为罕见。`;}
 function aiState(){const f=S.flags;return {姓名:S.name,五行根骨:S.el,等级:S.lv,修为:S.xp+'/'+need(),气血:S.hp+'/'+S.mhp,内力:S.mp+'/'+S.mmp,银两:S.gold,侠名:S.rep,善恶:S.karma,地点:S.place||LOC[S.loc].n,第几日:S.day,
  行囊:Object.entries(S.inv).map(([k,v])=>k+'×'+v+'('+CATN[itemInfo(k).c]+')'),武功:mySkills().map(s=>s.n),装备:Object.keys(SLOTN).map(k=>SLOTN[k]+':'+(S.eq[k]?S.eq[k]+'('+(gearOf(S.eq[k]).el||'无属')+')':'无')),武功五行:mySkills().map(s=>s.n+':'+skillEl(s)),攻击:atkStat(),防御:defStat(),人物关系:npcList().map(n=>n.n+'('+(n.title||'')+'·'+(n.sp?n.sp+'·':'')+relLabel(n.rel)+n.rel+'·'+(n.status||'在世')+')'),同伴:f.allyOn?['柳青（师父之女）']:[],
- 主线已开启:!!f.mainOn,主线线索数:Math.min(S.clues,5)+'/5',主线进度:{拜见云隐寺住持:!!f.monk,查探黑松林营地:!!f.camp,寻访沧浪江船夫:!!f.boat,夜探锦衣卫:!!f.palace,得到总坛地图:!!f.cultMap,已与教主决战:!!f.boss},已知教主弱点:!!f.weak,江湖:wlState(),日志:S.notes.slice(0,12),队伍:(ensureParty(),S.party.map(n=>n+(S.away[n]?'(暂离)':''))),队伍上限:PCAP+(S.party.length>=PCAP?'（已满，再招人需换下一人）':''),旧日同伴:(S.former||[]).map(x=>x.n+':'+x.why),队伍变动:S.partyNote||''};}
+ 主线已开启:!!f.mainOn,主线线索数:Math.min(S.clues,5)+'/5',主线进度:{拜见云隐寺住持:!!f.monk,查探黑松林营地:!!f.camp,寻访沧浪江船夫:!!f.boat,夜探锦衣卫:!!f.palace,得到总坛地图:!!f.cultMap,已与教主决战:!!f.boss},已知教主弱点:!!f.weak,江湖:Object.assign(wlState(),econState()),日志:S.notes.slice(0,12),队伍:(ensureParty(),S.party.map(n=>n+(S.away[n]?'(暂离)':''))),队伍上限:PCAP+(S.party.length>=PCAP?'（已满，再招人需换下一人）':''),旧日同伴:(S.former||[]).map(x=>x.n+':'+x.why),队伍变动:S.partyNote||''};}
 function aiMessages(text){const recent=S.log.slice(-14).filter(e=>e.k==='n'||e.k==='p').map(e=>(e.k==='p'?'【玩家】':'')+e.t).join('\n').slice(-1800);
  const msgs=[{role:'system',content:sysPrompt()},{role:'user',content:'【近况】\n'+recent+'\n\n【当前状态】\n'+JSON.stringify(aiState())}];
  (S.turns||[]).slice(-8).forEach(m=>msgs.push(m));
@@ -1372,7 +1499,7 @@ function applyAI(j){
  const pl=str(j.place,12);if(pl){const k=Object.keys(LOC).find(k=>pl.includes(LOC[k].n)||LOC[k].n.includes(pl));
   if(k){S.loc=k;S.place='';if(!S.seen.includes(k))S.seen.push(k);if(k==='cult')S.flags.cultMap=1;}else if(!k)S.place=pl;}
  const cl=str(j.clue,40);if(cl&&S.clues<12)addClue(cl);
- wlAI(j.jianghu);const nt=str(j.note,40);if(nt)note(nt);
+ wlAI(j.jianghu);try{econAI(j.jianghu);econTick();}catch(_){}const nt=str(j.note,40);if(nt)note(nt);
  if(xp)gainXp(xp);
  S.day+=chance(.35)?1:0;
  const choices=strs(j.choices,4,16);const fallbackChoices=['四处看看','打坐调息','找人打听消息','前往他处'];
